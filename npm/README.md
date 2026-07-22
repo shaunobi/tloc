@@ -40,22 +40,39 @@ force `--provenance`; this keeps token-authenticated local bootstrap viable.
 An npm package must exist before its trusted publisher can be configured. To
 create all seven packages for the first time:
 
-1. Check out a clean release tag locally and build its exact artifacts without
-   publishing a GitHub release:
+1. From a clean checkout of the commit that will become `v1.0.0`, create a
+   local-only bootstrap tag and build its exact artifacts without publishing a
+   GitHub release:
 
    ```sh
+   git tag v0.0.0-bootstrap.0
    goreleaser release --clean --skip=publish
-   node npm/scripts/stage.mjs --version 1.0.0
-   node npm/scripts/publish.mjs --root dist/npm --version 1.0.0 --dry-run
+   node npm/scripts/stage.mjs --version 0.0.0-bootstrap.0
+   node npm/scripts/publish.mjs \
+     --root dist/npm \
+     --version 0.0.0-bootstrap.0 \
+     --dry-run
    ```
 
 2. Authenticate to npm with an account protected by 2FA, or a temporary
-   granular token with bypass-2FA permission, then run the publish command
-   without `--dry-run`. Platform packages are created before the wrapper.
-3. For each of the seven packages, configure a GitHub Actions trusted publisher
-   for repository `shaunobi/tloc`, workflow file `release.yml`, and the
-   `npm publish` action. Do not set an environment unless the workflow is
-   updated to use the exact same environment name.
+   granular token with bypass-2FA permission, then run the same publish command
+   without `--dry-run`. Platform packages are created before the wrapper, and
+   the bootstrap prerelease receives the non-default `next` dist-tag so it
+   cannot satisfy a normal install before `v1.0.0` exists.
+3. Configure each of the seven packages with npm CLI 11.15.0 or newer:
+
+   ```sh
+   npm trust github <package> \
+     --repo shaunobi/tloc \
+     --file release.yml \
+     --allow-publish \
+     --yes
+   npm trust list <package> --json
+   ```
+
+   The workflow filename is case-sensitive and is not a path. Do not set an
+   environment unless the workflow is updated to use the exact same environment
+   name.
 4. After one OIDC release succeeds, disallow token publishing for the packages
    and revoke any temporary bootstrap token.
 
