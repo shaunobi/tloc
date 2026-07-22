@@ -57,8 +57,10 @@ create all seven packages for the first time:
 2. Authenticate to npm with an account protected by 2FA, or a temporary
    granular token with bypass-2FA permission, then run the same publish command
    without `--dry-run`. Platform packages are created before the wrapper, and
-   the bootstrap prerelease receives the non-default `next` dist-tag so it
-   cannot satisfy a normal install before `v1.0.0` exists.
+   the bootstrap prerelease receives the non-default `next` dist-tag. Bootstrap
+   immediately before the stable release: npm may also expose a newly created
+   package's only version through `latest`, so verify that every `latest` tag is
+   `1.0.0` after the release workflow succeeds.
 3. Configure each of the seven packages with npm CLI 11.15.0 or newer:
 
    ```sh
@@ -79,7 +81,8 @@ create all seven packages for the first time:
 The publish script checks the registry before each publish, skips package and
 version pairs that already exist, publishes all platform packages first, and
 publishes the wrapper last. Stable versions use the `latest` dist-tag;
-prereleases use `next` so they cannot replace `latest`.
+prereleases request `next`. A newly created package can still receive `latest`
+for its only version, so the bootstrap and stable release should be consecutive.
 
 The release workflow runs the full CI suite, including a real GoReleaser
 snapshot-to-npm preflight. GoReleaser then creates or reuses a GitHub draft and
