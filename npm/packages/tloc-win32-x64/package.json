@@ -1,0 +1,20 @@
+{
+  "name": "@shaunobi/tloc-win32-x64",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Windows x64 binary for @shaunobi/tloc",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaunobi/tloc.git",
+    "directory": "npm/packages/tloc-win32-x64"
+  },
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "files": ["bin/tloc.exe"],
+  "preferUnplugged": true,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

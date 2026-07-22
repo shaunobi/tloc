@@ -1,0 +1,23 @@
+{
+  "currency": "USD",
+  "products": [
+    {
+      "sku": "notebook-grid-a5",
+      "title": "A5 Grid Notebook",
+      "price_cents": 1295,
+      "tags": ["paper", "stationery"],
+      "dimensions_mm": {"width": 148, "height": 210, "depth": 12}
+    },
+    {
+      "sku": "pencil-mechanical-05",
+      "title": "0.5 mm Mechanical Pencil",
+      "price_cents": 875,
+      "tags": ["writing", "refillable"],
+      "variants": [
+        {"color": "graphite", "stock": 42},
+        {"color": "navy", "stock": 17}
+      ]
+    }
+  ],
+  "shipping": {"free_over_cents": 5000, "regions": ["US", "CA"]}
+}

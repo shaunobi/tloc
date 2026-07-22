@@ -1,0 +1,23 @@
+service: recommendation-api
+telemetry:
+  traces:
+    sampler:
+      type: parent_based
+      probability: 0.15
+    exporters:
+      - protocol: otlp-grpc
+        endpoint: collector.internal:4317
+        compression: gzip
+  metrics:
+    interval: 30s
+    histogram_buckets: [0.005, 0.01, 0.025, 0.1, 0.5, 1.0]
+  logs:
+    level: info
+    redact_fields:
+      - request.headers.authorization
+      - user.email
+alerts:
+  - name: elevated-error-rate
+    expression: rate(http_errors_total[5m]) > 0.03
+    for: 10m
+    severity: page

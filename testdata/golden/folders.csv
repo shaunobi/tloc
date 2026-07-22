@@ -1,0 +1,4 @@
+folder,input_id,depth,synthetic,files,lines,code,comments,blanks,complexity,bytes,tokens
+.,0,0,false,3,18,12,3,3,3,180,33
+(root files),0,1,true,2,13,8,3,2,2,130,25
+pkg,0,1,false,1,5,4,0,1,1,50,8

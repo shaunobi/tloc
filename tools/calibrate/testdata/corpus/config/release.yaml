@@ -1,0 +1,22 @@
+release:
+  name: summer-cleanup
+  strategy: canary
+  stages:
+    - name: internal
+      traffic_percent: 5
+      duration: 20m
+      checks: [error-rate, latency-p95]
+    - name: regional
+      traffic_percent: 30
+      regions: [us-west, eu-central]
+      duration: 1h
+      checks: [error-rate, saturation, queue-depth]
+    - name: global
+      traffic_percent: 100
+      approval: manual
+  rollback:
+    automatic: true
+    thresholds:
+      error_rate: 0.025
+      latency_p95_ms: 750
+    retain_database_migrations: true

@@ -1,0 +1,41 @@
+{
+  "languages": [
+    {
+      "language": "Go",
+      "files": 2,
+      "lines": 15,
+      "code": 12,
+      "comments": 1,
+      "blanks": 2,
+      "complexity": 3,
+      "bytes": 150,
+      "tokens": 28
+    },
+    {
+      "language": "Markdown",
+      "files": 1,
+      "lines": 3,
+      "code": 0,
+      "comments": 2,
+      "blanks": 1,
+      "complexity": 0,
+      "bytes": 30,
+      "tokens": 5
+    }
+  ],
+  "totals": {
+    "files": 3,
+    "lines": 18,
+    "code": 12,
+    "comments": 3,
+    "blanks": 3,
+    "complexity": 3,
+    "bytes": 180,
+    "tokens": 33
+  },
+  "metadata": {
+    "version": "test-version",
+    "tokenizer": "o200k",
+    "calibration_factor": 1
+  }
+}

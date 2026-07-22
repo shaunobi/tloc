@@ -1,0 +1,20 @@
+{
+  "service": "invoice-worker",
+  "image": "registry.example.test/invoice-worker:2.4.1",
+  "replicas": {"minimum": 2, "maximum": 12, "target_cpu_percent": 65},
+  "resources": {
+    "requests": {"cpu": "250m", "memory": "256Mi"},
+    "limits": {"cpu": "1", "memory": "768Mi"}
+  },
+  "health": {
+    "path": "/health/ready",
+    "port": 8080,
+    "initial_delay_seconds": 8,
+    "timeout_seconds": 2
+  },
+  "environment": [
+    {"name": "LOG_LEVEL", "value": "info"},
+    {"name": "QUEUE_NAME", "value": "invoices.pending"},
+    {"name": "DATABASE_URL", "secret": "invoice-db-url"}
+  ]
+}

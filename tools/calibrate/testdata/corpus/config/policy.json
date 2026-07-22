@@ -1,0 +1,25 @@
+{
+  "version": 3,
+  "statements": [
+    {
+      "effect": "allow",
+      "actions": ["document:read", "document:list"],
+      "resources": ["project/${principal.project_id}/*"],
+      "conditions": {"principal.active": true}
+    },
+    {
+      "effect": "allow",
+      "actions": ["document:write", "document:delete"],
+      "resources": ["project/${principal.project_id}/drafts/*"],
+      "conditions": {
+        "principal.roles_any": ["editor", "owner"],
+        "request.mfa_age_seconds_lte": 900
+      }
+    },
+    {
+      "effect": "deny",
+      "actions": ["*"],
+      "resources": ["project/*/legal-hold/*"]
+    }
+  ]
+}

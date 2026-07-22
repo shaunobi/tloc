@@ -1,0 +1,28 @@
+roles:
+  viewer:
+    description: Read published reports
+    permissions:
+      - report.list
+      - report.read
+  analyst:
+    inherits: [viewer]
+    permissions:
+      - query.execute
+      - export.create
+  administrator:
+    inherits: [analyst]
+    permissions: ["*"]
+
+bindings:
+  - role: viewer
+    groups: [support, success]
+    scope: organization
+  - role: analyst
+    groups: [finance-analytics]
+    scope: workspace/finance
+  - role: administrator
+    users:
+      - oncall@example.test
+    conditions:
+      expires_at: 2026-08-01T00:00:00Z
+      require_mfa: true

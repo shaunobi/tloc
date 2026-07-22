@@ -1,0 +1,26 @@
+line_width = 100
+indent_style = "space"
+indent_size = 2
+newline = "lf"
+insert_final_newline = true
+
+[languages.go]
+indent_size = 4
+organize_imports = true
+
+[languages.markdown]
+line_width = 88
+wrap = "prose"
+preserve_table_alignment = true
+
+[languages.yaml]
+quote_style = "double_when_needed"
+sequence_indent = true
+
+[files]
+include = ["src/**/*", "docs/**/*.md", "*.toml"]
+exclude = ["vendor/**", "dist/**", "**/*.generated.*"]
+
+[[overrides]]
+pattern = "Makefile"
+indent_style = "tab"

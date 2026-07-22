@@ -1,0 +1,39 @@
+{
+  "name": "@shaunobi/tloc",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Count lines of code and LLM tokens side by side",
+  "license": "MIT",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaunobi/tloc.git",
+    "directory": "npm/packages/tloc"
+  },
+  "homepage": "https://github.com/shaunobi/tloc#readme",
+  "bugs": {
+    "url": "https://github.com/shaunobi/tloc/issues"
+  },
+  "bin": {
+    "tloc": "bin/tloc.js"
+  },
+  "files": [
+    "bin",
+    "lib"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "@shaunobi/tloc-darwin-arm64": "0.0.0",
+    "@shaunobi/tloc-darwin-x64": "0.0.0",
+    "@shaunobi/tloc-linux-arm64": "0.0.0",
+    "@shaunobi/tloc-linux-x64": "0.0.0",
+    "@shaunobi/tloc-win32-arm64": "0.0.0",
+    "@shaunobi/tloc-win32-x64": "0.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

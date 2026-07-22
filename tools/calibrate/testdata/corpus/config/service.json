@@ -1,0 +1,16 @@
+{
+  "service": "catalog",
+  "http": {
+    "listen": "127.0.0.1:8080",
+    "read_timeout_ms": 2500,
+    "cors_origins": ["https://example.test"]
+  },
+  "features": {
+    "semantic_search": true,
+    "recommendations": false
+  },
+  "limits": {
+    "requests_per_minute": 120,
+    "maximum_page_size": 100
+  }
+}

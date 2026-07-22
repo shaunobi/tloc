@@ -1,0 +1,27 @@
+[database]
+driver = "postgres"
+host = "db.internal"
+port = 5432
+name = "orders"
+ssl_mode = "verify-full"
+connect_timeout_seconds = 5
+
+[database.pool]
+minimum_connections = 2
+maximum_connections = 24
+idle_timeout_seconds = 120
+max_lifetime_seconds = 1800
+
+[database.retry]
+attempts = 4
+initial_delay_ms = 100
+maximum_delay_ms = 2500
+jitter = true
+
+[[database.session_variables]]
+name = "statement_timeout"
+value = "15s"
+
+[[database.session_variables]]
+name = "application_name"
+value = "order-api"

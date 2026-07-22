@@ -1,0 +1,20 @@
+{
+  "name": "@shaunobi/tloc-linux-arm64",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Linux arm64 binary for @shaunobi/tloc",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaunobi/tloc.git",
+    "directory": "npm/packages/tloc-linux-arm64"
+  },
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": ["bin/tloc"],
+  "preferUnplugged": true,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

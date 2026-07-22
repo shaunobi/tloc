@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  # npm dist-tags are mutable package-by-package, so serialize all release tags.
+  group: tloc-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'shaunobi/tloc'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  github-draft:
+    name: Build GitHub draft
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Inspect existing release
+        id: release_state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          is_draft="$(
+            gh release view "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json isDraft \
+              --jq .isDraft 2>/dev/null || true
+          )"
+          if [[ "$is_draft" == "false" ]]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and update GitHub draft
+        if: steps.release_state.outputs.published != 'true'
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rebuild artifacts without mutating an existing published release
+        if: steps.release_state.outputs.published == 'true'
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --clean --skip=publish
+
+      - name: Preserve exact release artifacts for npm
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tloc-release-dist
+          path: dist
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  npm:
+    name: Publish npm packages
+    needs: github-draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Restore exact release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: tloc-release-dist
+          path: dist
+
+      - name: Stage npm packages
+        shell: bash
+        run: |
+          node npm/scripts/stage.mjs \
+            --version "${GITHUB_REF_NAME#v}" \
+            --artifacts dist/artifacts.json \
+            --output dist/npm
+
+      - name: Validate npm package contents
+        shell: bash
+        run: |
+          node npm/scripts/publish.mjs \
+            --root dist/npm \
+            --version "${GITHUB_REF_NAME#v}" \
+            --dry-run
+
+      - name: Publish npm packages
+        shell: bash
+        run: |
+          node npm/scripts/publish.mjs \
+            --root dist/npm \
+            --version "${GITHUB_REF_NAME#v}"
+
+  finalize:
+    name: Publish GitHub release
+    needs: npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the completed draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          is_draft="$(
+            gh release view "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json isDraft \
+              --jq .isDraft
+          )"
+          if [[ "$is_draft" == "true" ]]; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft=false
+          else
+            echo "Release $GITHUB_REF_NAME is already published."
+          fi

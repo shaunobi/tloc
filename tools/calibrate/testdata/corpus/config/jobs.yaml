@@ -1,0 +1,26 @@
+version: 2
+defaults:
+  timeout: 15m
+  retries: 2
+  environment:
+    LOG_FORMAT: json
+    TZ: UTC
+
+jobs:
+  import-customers:
+    schedule: "15 */4 * * *"
+    command: ["./bin/import", "--source", "s3://example/customers"]
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    notifications:
+      on_failure: ["ops@example.test"]
+
+  purge-previews:
+    schedule: "0 3 * * 0"
+    command:
+      - ./bin/purge
+      - --older-than=168h
+      - --batch-size=250
+    retries: 0
+    concurrency_policy: forbid

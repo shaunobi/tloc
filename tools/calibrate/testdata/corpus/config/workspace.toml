@@ -1,0 +1,23 @@
+[workspace]
+name = "data-pipeline"
+members = ["collector", "normalizer", "publisher"]
+default_member = "publisher"
+
+[build]
+target = "x86_64-unknown-linux-musl"
+incremental = true
+warnings_as_errors = false
+
+[profiles.development]
+optimization = 0
+debug_symbols = true
+
+[profiles.release]
+optimization = 3
+link_time_optimization = "thin"
+strip_symbols = true
+
+[[mirrors]]
+name = "primary"
+url = "https://packages.example.test/index"
+priority = 10

@@ -1,0 +1,21 @@
+service = "catalog"
+environment = "development"
+
+[http]
+listen = "127.0.0.1:8080"
+read_timeout = "2.5s"
+
+[database]
+driver = "postgres"
+pool_size = 12
+statement_timeout = "5s"
+
+[[upstreams]]
+name = "inventory"
+url = "https://inventory.example.test/v1"
+retries = 3
+
+[[upstreams]]
+name = "pricing"
+url = "https://pricing.example.test/v2"
+retries = 2

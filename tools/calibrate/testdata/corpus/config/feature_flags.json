@@ -1,0 +1,25 @@
+{
+  "environment": "staging",
+  "defaults": {
+    "checkout_v2": false,
+    "search_facets": true,
+    "compact_navigation": false
+  },
+  "segments": [
+    {
+      "name": "internal-testers",
+      "match": {"email_suffix": "@example.test"},
+      "overrides": {"checkout_v2": true, "compact_navigation": true}
+    },
+    {
+      "name": "gradual-rollout",
+      "match": {"bucket": {"minimum": 0, "maximum": 24}},
+      "overrides": {"checkout_v2": true}
+    }
+  ],
+  "audit": {
+    "owner": "platform",
+    "ticket": "PLAT-1842",
+    "expires_at": "2026-09-30T00:00:00Z"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@shaunobi/tloc-darwin-x64",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The macOS x64 binary for @shaunobi/tloc",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaunobi/tloc.git",
+    "directory": "npm/packages/tloc-darwin-x64"
+  },
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "files": ["bin/tloc"],
+  "preferUnplugged": true,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
