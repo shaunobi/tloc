@@ -1,7 +1,9 @@
 # Adversarial review — tloc v1.0.0
 
 Date: 2026-07-22. Scope: full codebase, release artifacts, and DONE.md claims, as of
-tag `v1.0.0` (working tree at commit `d10a529`). Method: six independent adversarial
+working-tree commit `d10a529` (note: tag `v1.0.0` points at `86e8494`, two doc-only
+commits earlier — code identical, README/DONE wording differs). Method: six
+independent adversarial
 reviewers (core pipeline, aggregation/sorting, output renderers, tokenizer/calibration,
 release engineering, docs/spec-compliance), each building the binary and proving
 findings end-to-end against hostile fixtures where possible. Critical findings were
@@ -222,3 +224,59 @@ truncated prefix. scc trims from the front precisely so the filename survives.
 Ship v1.0.1 with C1 + M1 fixed under one coherent error policy (continue past
 per-file/per-directory errors, warn on stderr, optional strict mode) and the M2
 output guard. M3 is a docs edit. Everything else can queue behind those.
+
+*(Superseded in part by the adjudication below — see TODO.md for the adjudicated
+priorities.)*
+
+---
+
+## Adjudication — independent confirmation pass (2026-07-22)
+
+A second, independent review (Codex) re-verified these findings. Outcome: 14 fully
+agreed, 7 partly agreed, 1 refuted. Adjustments accepted into TODO.md:
+
+**Confirmed as written:** C1 (release blocker; reproduced exactly, including the
+depth ≥ 2 sibling abort), M2, M4, and Minors 1, 3, 7 (reproduced on Node 24/
+Windows), 8, 9, 10, 11, 14, 15, 16, 17.
+
+**Adjusted:**
+- **M1 downgraded major → medium**: the behavior is fail-closed, not silently
+  wrong. Fix direction revised: this review's "exit 0 + stderr warnings" suggestion
+  is unsafe for JSON/CSV consumers; partial reports should exit nonzero and carry
+  structured completeness metadata. C1's fix must not route walk warnings through
+  the fatal path, must collect them concurrency-safely, and note gocodewalker
+  discards first-level traversal errors internally.
+- **M3 downgraded**: the published numbers are honest and LOO through 10.52% was
+  already disclosed in DONE.md; calling 10.52% a clear miss of a "roughly 10%"
+  target was too strong. The surviving criticism is corpus coverage
+  (unrepresented languages are unvalidated); the stronger fix is held-out samples,
+  not rewording.
+- **Minor 2 narrowed**: the composite JSON/CSV identity (input_id, folder,
+  synthetic) is unambiguous and documented; flat-path collision is a
+  documentation clarification, not a data-integrity bug.
+- **Minor 6 narrowed**: the embedded ranks asset is independently SHA-pinned in
+  `o200k_test.go`, so asset drift is already caught; the NaN vacuous pass and the
+  missing corpus re-hash stand. The "post-hoc cutoff" charge is withdrawn as
+  speculation.
+- **Minors 4, 12, 13 confirmed with softened framing** (intentional behavior /
+  generic examples / partially documented, respectively).
+
+**Refuted — Minor 5**: scc also skips `.gitignore`/`.ignore` files unless its
+separate `--count-ignore` flag is set (verified against scc v3.7.0
+`processor/file.go:132`); `--no-ignore` disables applying rules, not counting the
+files. tloc's default IS scc parity. Withdrawn; the corresponding "deliberate
+deviation" language above should be read as incorrect.
+
+**"Overstated DONE.md claims" section adjusted**: "collision-safe" and the 9.30%
+figure are substantively accurate (see Minor 2 and M3 adjustments); the CI
+sentence is ambiguous rather than false; and C1 shows traversal-error-policy
+divergence from scc, not ignore-rule parity falsification.
+
+**New findings from the adjudication pass** (added to TODO.md):
+- SPEC.md retains stale npm-dispute language contradicting the recorded decision
+  to keep `@shaunobi/tloc` and file no claim.
+- `--help` omits the "roughly 10%" accuracy target SPEC.md requires it to state.
+- npm stage.mjs trusts GoReleaser goos/goarch labels for artifact→package mapping;
+  binary-header verification would harden it.
+- Stray verification tarballs (`lx.tgz`, `w.tgz`) were left untracked in the repo
+  root (since removed, along with regenerable `.cache/` and `dist/`).
