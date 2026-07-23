@@ -81,7 +81,29 @@ func TestRetryDelay(t *testing.T) {
 	if got := retryDelay("2", 0); got != 2*time.Second {
 		t.Errorf("retryDelay seconds = %s, want 2s", got)
 	}
+	if got := retryDelay("99999", 0); got != maxRetryDelay {
+		t.Errorf("retryDelay capped seconds = %s, want %s", got, maxRetryDelay)
+	}
 	if got := retryDelay("", 0); got != 250*time.Millisecond {
 		t.Errorf("retryDelay fallback = %s, want 250ms", got)
+	}
+
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		name       string
+		retryAfter string
+		attempt    int
+		want       time.Duration
+	}{
+		{name: "short date", retryAfter: now.Add(3 * time.Second).Format(http.TimeFormat), want: 3 * time.Second},
+		{name: "capped date", retryAfter: now.Add(time.Hour).Format(http.TimeFormat), want: maxRetryDelay},
+		{name: "past date uses backoff", retryAfter: now.Add(-time.Hour).Format(http.TimeFormat), want: 250 * time.Millisecond},
+		{name: "computed backoff capped", attempt: 100, want: maxRetryDelay},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := retryDelayAt(test.retryAfter, test.attempt, now); got != test.want {
+				t.Errorf("retryDelayAt(%q, %d) = %s, want %s", test.retryAfter, test.attempt, got, test.want)
+			}
+		})
 	}
 }

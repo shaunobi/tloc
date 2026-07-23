@@ -1,8 +1,8 @@
 # Claude tokenizer calibration
 
-Generated: 2026-07-22T22:53:42Z
+Generated: 2026-07-23T03:01:09Z
 
-Method: Claude framing tokens = count_tokens("x") - 1 known probe token; Claude content tokens = count_tokens(message text) - framing tokens; factor = sum(Claude content tokens) / sum(o200k_base tokens)
+Method: Claude framing tokens = count_tokens("x") - 1 known probe token; Claude content tokens = count_tokens(message text) - framing tokens; factor = sum(Claude content tokens) / sum(o200k_base tokens); held-out samples are excluded from fitting and evaluated only after factors are finalized
 
 | Generation | Model | Framing baseline | Samples | o200k tokens | Claude content tokens | Factor | MAPE |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -30,6 +30,46 @@ Method: Claude framing tokens = count_tokens("x") - 1 known probe token; Claude 
 | TOML | 5 | 637 | 1007 | 1.580848 | 1.576610 | 1.586207 | 3.05% | +4.67% | 5.10% | 3.79% |
 | TypeScript | 5 | 1150 | 1870 | 1.626087 | 1.632146 | 1.609195 | 6.07% | +1.76% | 6.58% | 7.67% |
 | YAML | 5 | 731 | 1067 | 1.459644 | 1.460944 | 1.473333 | 1.50% | +13.31% | 13.24% | 1.94% |
+
+### Held-out evaluation
+
+These samples were not used to fit or select calibration factors. Factor source: production calibration factors.
+
+| Language | Samples | Factor used | Factor basis | o200k tokens | Claude content tokens | Predicted tokens | Signed aggregate error | MAPE |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| C | 5 | 1.654377 | global fallback | 1412 | 2240 | 2336 | +4.29% | 7.05% |
+| HTML | 5 | 1.654377 | global fallback | 1710 | 2413 | 2829 | +17.24% | 17.27% |
+| Kotlin | 5 | 1.654377 | global fallback | 1249 | 2148 | 2067 | -3.77% | 5.16% |
+| Swift | 5 | 1.654377 | global fallback | 1260 | 2083 | 2085 | +0.10% | 3.51% |
+| **Overall** | **20** |  |  | **5631** | **8884** | **9317** | **+4.87%** | **8.25%** |
+
+<details>
+<summary>Held-out per-file measurements</summary>
+
+| File | Language | Bytes | Truncated | o200k | Claude content | Ratio |
+|---|---|---:|:---:|---:|---:|---:|
+| `holdout/c/csv_parser.c` | C | 1171 | false | 267 | 409 | 1.531835 |
+| `holdout/c/metrics.c` | C | 1058 | false | 260 | 389 | 1.496154 |
+| `holdout/c/path_table.c` | C | 1128 | false | 280 | 491 | 1.753571 |
+| `holdout/c/ring_buffer.c` | C | 993 | false | 289 | 441 | 1.525952 |
+| `holdout/c/scheduler.c` | C | 1301 | false | 316 | 510 | 1.613924 |
+| `holdout/html/checkout.html` | HTML | 1396 | false | 372 | 534 | 1.435484 |
+| `holdout/html/dashboard.html` | HTML | 1243 | false | 402 | 552 | 1.373134 |
+| `holdout/html/docs.html` | HTML | 1034 | false | 318 | 457 | 1.437107 |
+| `holdout/html/settings.html` | HTML | 1289 | false | 319 | 462 | 1.448276 |
+| `holdout/html/status.html` | HTML | 1038 | false | 299 | 408 | 1.364548 |
+| `holdout/kotlin/BatchWindow.kt` | Kotlin | 1080 | false | 253 | 443 | 1.750988 |
+| `holdout/kotlin/ConfigMerge.kt` | Kotlin | 1146 | false | 252 | 430 | 1.706349 |
+| `holdout/kotlin/EventRouter.kt` | Kotlin | 1110 | false | 227 | 427 | 1.881057 |
+| `holdout/kotlin/RetryQueue.kt` | Kotlin | 1023 | false | 251 | 423 | 1.685259 |
+| `holdout/kotlin/Stats.kt` | Kotlin | 1039 | false | 266 | 425 | 1.597744 |
+| `holdout/swift/AsyncCache.swift` | Swift | 1022 | false | 248 | 400 | 1.612903 |
+| `holdout/swift/EventBus.swift` | Swift | 1012 | false | 241 | 380 | 1.576763 |
+| `holdout/swift/RetryPolicy.swift` | Swift | 1179 | false | 273 | 489 | 1.791209 |
+| `holdout/swift/RouteMatcher.swift` | Swift | 1201 | false | 249 | 405 | 1.626506 |
+| `holdout/swift/SlidingWindow.swift` | Swift | 1065 | false | 249 | 409 | 1.642570 |
+
+</details>
 
 <details>
 <summary>Per-file measurements</summary>
@@ -140,6 +180,46 @@ Method: Claude framing tokens = count_tokens("x") - 1 known probe token; Claude 
 | TypeScript | 5 | 1150 | 1452 | 1.262609 | 1.264539 | 1.291188 | 4.16% | -0.96% | 4.30% | 5.30% |
 | YAML | 5 | 731 | 858 | 1.173735 | 1.173751 | 1.173913 | 0.67% | +6.64% | 6.67% | 1.04% |
 
+### Held-out evaluation
+
+These samples were not used to fit or select calibration factors. Factor source: production calibration factors.
+
+| Language | Samples | Factor used | Factor basis | o200k tokens | Claude content tokens | Predicted tokens | Signed aggregate error | MAPE |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| C | 5 | 1.250226 | global fallback | 1412 | 1783 | 1765 | -1.01% | 1.24% |
+| HTML | 5 | 1.250226 | global fallback | 1710 | 1995 | 2139 | +7.22% | 7.26% |
+| Kotlin | 5 | 1.250226 | global fallback | 1249 | 1560 | 1562 | +0.13% | 3.36% |
+| Swift | 5 | 1.250226 | global fallback | 1260 | 1551 | 1574 | +1.48% | 4.25% |
+| **Overall** | **20** |  |  | **5631** | **6889** | **7040** | **+2.19%** | **4.03%** |
+
+<details>
+<summary>Held-out per-file measurements</summary>
+
+| File | Language | Bytes | Truncated | o200k | Claude content | Ratio |
+|---|---|---:|:---:|---:|---:|---:|
+| `holdout/c/csv_parser.c` | C | 1171 | false | 267 | 344 | 1.288390 |
+| `holdout/c/metrics.c` | C | 1058 | false | 260 | 324 | 1.246154 |
+| `holdout/c/path_table.c` | C | 1128 | false | 280 | 356 | 1.271429 |
+| `holdout/c/ring_buffer.c` | C | 993 | false | 289 | 360 | 1.245675 |
+| `holdout/c/scheduler.c` | C | 1301 | false | 316 | 399 | 1.262658 |
+| `holdout/html/checkout.html` | HTML | 1396 | false | 372 | 436 | 1.172043 |
+| `holdout/html/dashboard.html` | HTML | 1243 | false | 402 | 469 | 1.166667 |
+| `holdout/html/docs.html` | HTML | 1034 | false | 318 | 373 | 1.172956 |
+| `holdout/html/settings.html` | HTML | 1289 | false | 319 | 373 | 1.169279 |
+| `holdout/html/status.html` | HTML | 1038 | false | 299 | 344 | 1.150502 |
+| `holdout/kotlin/BatchWindow.kt` | Kotlin | 1080 | false | 253 | 313 | 1.237154 |
+| `holdout/kotlin/ConfigMerge.kt` | Kotlin | 1146 | false | 252 | 304 | 1.206349 |
+| `holdout/kotlin/EventRouter.kt` | Kotlin | 1110 | false | 227 | 302 | 1.330396 |
+| `holdout/kotlin/RetryQueue.kt` | Kotlin | 1023 | false | 251 | 321 | 1.278884 |
+| `holdout/kotlin/Stats.kt` | Kotlin | 1039 | false | 266 | 320 | 1.203008 |
+| `holdout/swift/AsyncCache.swift` | Swift | 1022 | false | 248 | 293 | 1.181452 |
+| `holdout/swift/EventBus.swift` | Swift | 1012 | false | 241 | 291 | 1.207469 |
+| `holdout/swift/RetryPolicy.swift` | Swift | 1179 | false | 273 | 363 | 1.329670 |
+| `holdout/swift/RouteMatcher.swift` | Swift | 1201 | false | 249 | 301 | 1.208835 |
+| `holdout/swift/SlidingWindow.swift` | Swift | 1065 | false | 249 | 303 | 1.216867 |
+
+</details>
+
 <details>
 <summary>Per-file measurements</summary>
 
@@ -248,6 +328,46 @@ Method: Claude framing tokens = count_tokens("x") - 1 known probe token; Claude 
 | TOML | 5 | 637 | 1007 | 1.580848 | 1.576610 | 1.586207 | 3.05% | +4.67% | 5.10% | 3.79% |
 | TypeScript | 5 | 1150 | 1870 | 1.626087 | 1.632146 | 1.609195 | 6.07% | +1.76% | 6.58% | 7.67% |
 | YAML | 5 | 731 | 1067 | 1.459644 | 1.460944 | 1.473333 | 1.50% | +13.31% | 13.24% | 1.94% |
+
+### Held-out evaluation
+
+These samples were not used to fit or select calibration factors. Factor source: training global factor (no production mapping).
+
+| Language | Samples | Factor used | Factor basis | o200k tokens | Claude content tokens | Predicted tokens | Signed aggregate error | MAPE |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| C | 5 | 1.654377 | global fallback | 1412 | 2240 | 2336 | +4.29% | 7.05% |
+| HTML | 5 | 1.654377 | global fallback | 1710 | 2413 | 2829 | +17.24% | 17.27% |
+| Kotlin | 5 | 1.654377 | global fallback | 1249 | 2148 | 2067 | -3.77% | 5.16% |
+| Swift | 5 | 1.654377 | global fallback | 1260 | 2083 | 2085 | +0.10% | 3.51% |
+| **Overall** | **20** |  |  | **5631** | **8884** | **9317** | **+4.87%** | **8.25%** |
+
+<details>
+<summary>Held-out per-file measurements</summary>
+
+| File | Language | Bytes | Truncated | o200k | Claude content | Ratio |
+|---|---|---:|:---:|---:|---:|---:|
+| `holdout/c/csv_parser.c` | C | 1171 | false | 267 | 409 | 1.531835 |
+| `holdout/c/metrics.c` | C | 1058 | false | 260 | 389 | 1.496154 |
+| `holdout/c/path_table.c` | C | 1128 | false | 280 | 491 | 1.753571 |
+| `holdout/c/ring_buffer.c` | C | 993 | false | 289 | 441 | 1.525952 |
+| `holdout/c/scheduler.c` | C | 1301 | false | 316 | 510 | 1.613924 |
+| `holdout/html/checkout.html` | HTML | 1396 | false | 372 | 534 | 1.435484 |
+| `holdout/html/dashboard.html` | HTML | 1243 | false | 402 | 552 | 1.373134 |
+| `holdout/html/docs.html` | HTML | 1034 | false | 318 | 457 | 1.437107 |
+| `holdout/html/settings.html` | HTML | 1289 | false | 319 | 462 | 1.448276 |
+| `holdout/html/status.html` | HTML | 1038 | false | 299 | 408 | 1.364548 |
+| `holdout/kotlin/BatchWindow.kt` | Kotlin | 1080 | false | 253 | 443 | 1.750988 |
+| `holdout/kotlin/ConfigMerge.kt` | Kotlin | 1146 | false | 252 | 430 | 1.706349 |
+| `holdout/kotlin/EventRouter.kt` | Kotlin | 1110 | false | 227 | 427 | 1.881057 |
+| `holdout/kotlin/RetryQueue.kt` | Kotlin | 1023 | false | 251 | 423 | 1.685259 |
+| `holdout/kotlin/Stats.kt` | Kotlin | 1039 | false | 266 | 425 | 1.597744 |
+| `holdout/swift/AsyncCache.swift` | Swift | 1022 | false | 248 | 400 | 1.612903 |
+| `holdout/swift/EventBus.swift` | Swift | 1012 | false | 241 | 380 | 1.576763 |
+| `holdout/swift/RetryPolicy.swift` | Swift | 1179 | false | 273 | 489 | 1.791209 |
+| `holdout/swift/RouteMatcher.swift` | Swift | 1201 | false | 249 | 405 | 1.626506 |
+| `holdout/swift/SlidingWindow.swift` | Swift | 1065 | false | 249 | 409 | 1.642570 |
+
+</details>
 
 <details>
 <summary>Per-file measurements</summary>

@@ -52,14 +52,16 @@ tloc [flags] [paths...]
 ```
 
 With no path, `tloc` scans the current directory. Multiple paths are combined
-into one report.
+into one report. Inputs are independent: if they overlap, a file reachable
+through more than one input is counted once for each input. Pass non-overlapping
+paths when each physical file should contribute only once.
 
 ```sh
 # Summarize the current project by language.
 tloc
 
 # Scan several inputs together.
-tloc cmd internal README.md
+tloc internal tools README.md
 
 # Order languages by code lines instead of tokens.
 tloc --sort code .
@@ -82,11 +84,12 @@ tloc --by-file --sort name internal
 
 Use `--by-folder` for a cumulative directory tree. A folder includes every
 counted file beneath it; files directly in an input root appear under
-`(root files)`.
+`(root files)`. A file passed directly as an input produces one depth-zero
+synthetic `(root files)` bucket, rather than pretending the file is a folder.
 
 ```sh
 tloc --by-folder .
-tloc --by-folder --sort code cmd internal
+tloc --by-folder --sort code internal tools
 ```
 
 `--by-file` and `--by-folder` are mutually exclusive.
@@ -97,13 +100,26 @@ tloc --by-folder --sort code cmd internal
 tloc --format json .
 tloc --format json --by-file --output report.json .
 tloc --format csv --by-folder -o folders.csv .
+# Existing output files require explicit replacement.
+tloc --format csv --by-folder -o folders.csv --force .
 ```
 
 JSON contains language records, the selected optional view, totals, and
 metadata. JSON and CSV include comments, blanks, complexity, byte counts, and
 token counts in addition to the columns shown in the table. Folder records also
 include the input ID, depth, and synthetic-root marker so overlapping or
-repeated input paths remain distinguishable in machine-readable output.
+repeated input paths remain distinguishable in machine-readable output. Treat
+`(input_id, folder, synthetic)` as the folder identity; `folder` alone can
+collide with the synthetic `(root files)` row. Folder CSV rows are cumulative,
+contain no separate totals row, and must not be summed together: a parent's
+metrics already include its descendants.
+
+JSON metadata always includes `complete` and a `skipped` array. CSV appends
+`record_type`, `complete`, and `skipped_*` columns; recoverable scan failures
+appear as `skipped` rows. If a file or directory becomes unreadable during a
+scan, tloc still renders the readable portion, warns on standard error, and
+exits nonzero. Check the structured completeness fields before consuming a
+JSON or CSV report.
 
 ### Tokenizers
 
@@ -126,7 +142,14 @@ justified by leave-one-out validation on a balanced 80-file corpus. The exact
 models, factors, per-language errors, and content hashes are retained in the
 [calibration report](tools/calibrate/results/calibration.md). On that corpus,
 the production factors measured 5.85% overall MAPE for current Claude and 4.08%
-for legacy, with every represented language below 10% MAPE.
+for legacy, with every represented language below 10% in-sample MAPE. Those
+figures describe the represented fitting corpus, not every programming
+language. Leave-one-out language error reached 10.52%. On a separate 20-file
+holdout covering C, HTML, Kotlin, and Swift, production-factor MAPE was 8.25%
+overall for current Claude and 4.03% for legacy. Current-Claude HTML was the
+exception at 17.27%; other held-out language/generation combinations were below
+10%. Languages absent from both sets use the global factor without direct
+validation.
 
 ### Filtering and ignore files
 
@@ -150,9 +173,11 @@ tloc --include-ext go,ts --exclude-dir vendor,node_modules .
 
 Binary files and files larger than `--max-file-bytes` are skipped.
 
-When `--output` points inside a scanned directory, that exact output file is
-excluded from the scan so repeated runs stay stable. tloc rejects an output
-path that aliases a scanned source file rather than risk overwriting it.
+Before scanning, tloc checks that an output destination is writable without
+truncating it. Existing output paths are refused by default; pass `--force` to
+replace one deliberately. When an output points inside a scanned directory,
+that exact file is excluded from the scan. Source/output aliases are rejected
+even with `--force`.
 
 ### Other flags
 
@@ -161,6 +186,7 @@ path that aliases a scanned source file rather than risk overwriting it.
 | `-f`, `--format` | `tabular`, `json`, `csv` | `tabular` |
 | `--sort` | `tokens`, `code`, `lines`, `files`, `name` | `tokens` |
 | `-o`, `--output` | output file path | standard output |
+| `--force` | replace an existing output file | off |
 | `--version` | print the tloc version | |
 | `-h`, `--help` | show complete CLI help | |
 

@@ -64,7 +64,7 @@ func tabularTable(report model.Report, view model.View) tableData {
 		rows := make([][]string, 0, len(report.Files))
 		for _, file := range report.Files {
 			rows = append(rows, append([]string{
-				truncate(file.Path, maxFileWidth),
+				truncateLeft(file.Path, maxFileWidth),
 				truncate(file.Language, maxLanguageWidth),
 			}, tabularMetrics(file.Metrics)...))
 		}
@@ -77,8 +77,8 @@ func tabularTable(report model.Report, view model.View) tableData {
 	case model.ViewFolder:
 		rows := make([][]string, 0, len(report.Folders))
 		for _, folder := range report.Folders {
-			label := strings.Repeat("  ", folder.Depth) + folder.Name
-			rows = append(rows, append([]string{truncate(label, maxFolderWidth)}, tabularMetrics(folder.Metrics)...))
+			label := strings.Repeat("  ", max(0, folder.Depth)) + truncate(folder.Name, maxFolderWidth)
+			rows = append(rows, append([]string{label}, tabularMetrics(folder.Metrics)...))
 		}
 		return tableData{
 			headings:   []string{"Folder", "Files", "Lines", "Code", "Tokens", "Tok/Line"},
@@ -179,7 +179,24 @@ func truncate(value string, maxWidth int) string {
 		return value
 	}
 	if maxWidth == 1 {
-		return "…"
+		return "\u2026"
 	}
-	return runewidth.Truncate(value, maxWidth, "…")
+	return runewidth.Truncate(value, maxWidth, "\u2026")
+}
+
+// truncateLeft preserves the distinguishing tail of a path while constraining
+// the result to maxWidth terminal cells. TruncateLeft operates on grapheme
+// clusters and pads when a wide cluster straddles the cut, so it cannot split a
+// displayed character or exceed the requested width.
+func truncateLeft(value string, maxWidth int) string {
+	width := runewidth.StringWidth(value)
+	if maxWidth <= 0 || width <= maxWidth {
+		return value
+	}
+	if maxWidth == 1 {
+		return "\u2026"
+	}
+
+	keptWidth := maxWidth - runewidth.StringWidth("\u2026")
+	return runewidth.TruncateLeft(value, width-keptWidth, "\u2026")
 }

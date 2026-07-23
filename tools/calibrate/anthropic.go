@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const maxRetryDelay = 8 * time.Second
+
 type anthropicClient struct {
 	apiKey     string
 	apiVersion string
@@ -107,17 +109,28 @@ func isRetryableStatus(status int) bool {
 }
 
 func retryDelay(retryAfter string, attempt int) time.Duration {
-	if seconds, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil && seconds >= 0 {
+	return retryDelayAt(retryAfter, attempt, time.Now())
+}
+
+func retryDelayAt(retryAfter string, attempt int, now time.Time) time.Duration {
+	retryAfter = strings.TrimSpace(retryAfter)
+	if seconds, err := strconv.ParseInt(retryAfter, 10, 64); err == nil && seconds >= 0 {
+		if seconds >= int64(maxRetryDelay/time.Second) {
+			return maxRetryDelay
+		}
 		return time.Duration(seconds) * time.Second
 	}
 	if when, err := http.ParseTime(retryAfter); err == nil {
-		if delay := time.Until(when); delay > 0 {
+		if delay := when.Sub(now); delay > 0 {
+			if delay > maxRetryDelay {
+				return maxRetryDelay
+			}
 			return delay
 		}
 	}
 	delay := 250 * time.Millisecond * time.Duration(1<<min(attempt, 5))
-	if delay > 8*time.Second {
-		return 8 * time.Second
+	if delay > maxRetryDelay {
+		return maxRetryDelay
 	}
 	return delay
 }

@@ -52,8 +52,10 @@ function resolveBinary({
   } catch (cause) {
     const error = new Error(
       `the optional package ${target.packageName} is missing for ` +
-        `${platform}/${arch}. Reinstall @shaunobi/tloc without ` +
-        `--omit=optional, or install with "go install ` +
+        `${platform}/${arch}. This can happen when package-lock.json or ` +
+        `node_modules was created on another platform. Remove both, then ` +
+        `reinstall @shaunobi/tloc without --omit=optional; or install with ` +
+        `"go install ` +
         `github.com/shaunobi/tloc@latest".`,
     );
     error.code = "TLOC_PLATFORM_PACKAGE_MISSING";

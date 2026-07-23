@@ -3,6 +3,62 @@
 Completed items moved from `TODO.md`. Notes capture what was implemented and
 any deliberate deviation from `SPEC.md`.
 
+## v1.0.1 adversarial-review fixes
+
+- [x] Continue safely after unreadable files and directories (C1 + M1). — The
+  concurrent walker callback now continues and collects deterministic warnings;
+  inspect/read failures use the same recoverable channel. tloc renders every
+  readable result, warns per skipped entry on stderr, and exits nonzero. JSON
+  emits `complete` plus structured `skipped` metadata; CSV emits status columns
+  and skipped-entry rows. Depth-one/deep ACL regressions and injected partial
+  report tests cover the complete policy.
+- [x] Make output replacement explicit and race-safe (M2 + Minor 16). — Existing
+  destinations are refused unless `--force` is present. Writability is checked
+  before scanning without truncation; new outputs use exclusive creation, and a
+  forced existing output retains its verified handle through the scan, checks
+  identity before and after writing, and truncates only that handle. Case
+  variants, aliases, repeat runs, race-created paths, and retarget attempts are
+  covered; `--force` never bypasses source-alias protection.
+- [x] Preserve useful tabular labels (M4 + Minor 1). — By-file paths are
+  grapheme- and display-width-safe trimmed from the head so filenames survive;
+  folder indentation no longer consumes the folder-name width budget.
+- [x] Represent direct file inputs honestly in folder view (Minor 3). — A direct
+  file now produces exactly one depth-zero synthetic `(root files)` bucket and
+  contributes its metrics once, with deterministic lexical parent paths.
+- [x] Clarify machine identity and aggregation semantics (Minors 2, 4, 12, 13).
+  — README examples now run in this repository; overlapping inputs are explicitly
+  double-counted; folder identity is documented as
+  `(input_id, folder, synthetic)`; cumulative folder CSV rows have no totals row
+  and must not be summed.
+- [x] Add true held-out Claude calibration evidence (M3). — Added 20 disjoint
+  authored files across C, HTML, Kotlin, and Swift and measured them without
+  using them to fit or select factors. Production-factor MAPE is 8.25% overall
+  for current Claude and 4.03% for legacy; current-Claude HTML's 17.27% exception
+  is disclosed. Existing factors and all prior 80-file measurements remain
+  unchanged, and current/Fable ground truth matches across all 100 files.
+- [x] Strengthen calibration reproducibility (Minor 6 + Minor 15). — The contract
+  rejects empty generation sets, recollects and SHA-256 rehashes all fitting and
+  held-out files, checks disjointness and recomputed summaries, and pins the
+  held-out exception. Numeric, date-form, and computed retry delays are capped at
+  eight seconds.
+- [x] Correct stale specification and CLI accuracy text. — SPEC records the
+  permanent scoped npm name and no-dispute decision. README, SPEC, and `--help`
+  narrow the roughly-10% target to represented/validated workloads and disclose
+  the unvalidated global fallback.
+- [x] Harden Windows npm publication and installation guidance (Minors 7 + 10).
+  — The `npm.cmd` fallback resolves and launches `npm-cli.js` with Node without
+  shell parsing, including hostile-argument coverage and a real npm 11.16.0
+  fallback run. Missing platform packages now explain cross-platform lockfile and
+  `node_modules` remediation.
+- [x] Make release/CI state handling fail closed (Minors 8 + 11). — Release
+  inspection treats only an explicit GitHub HTTP 404 as absent and propagates
+  transient/API failures. Feature-branch pushes no longer duplicate same-repo PR
+  CI while main, pull-request, and reusable workflow coverage remain.
+- [x] Verify staged binaries independently of GoReleaser labels. — npm staging
+  validates PE, ELF, and Mach-O magic plus amd64/arm64 headers for all six targets
+  before replacing staged output; cross-wired artifacts fail without destroying
+  the prior stage.
+
 ## Scaffolding
 
 - [x] Init Go module `github.com/shaunobi/tloc` (Go 1.25+), MIT LICENSE file, and the requested repository layout. — Added `main.go`, internal packages, calibration tools, fixtures, workflows, and npm packaging.

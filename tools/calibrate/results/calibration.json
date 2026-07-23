@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-22T22:53:42.0929825Z",
+  "generated_at": "2026-07-23T03:01:09.1943808Z",
   "endpoint": "https://api.anthropic.com/v1/messages/count_tokens",
   "anthropic_version": "2023-06-01",
-  "method": "Claude framing tokens = count_tokens(\"x\") - 1 known probe token; Claude content tokens = count_tokens(message text) - framing tokens; factor = sum(Claude content tokens) / sum(o200k_base tokens)",
+  "method": "Claude framing tokens = count_tokens(\"x\") - 1 known probe token; Claude content tokens = count_tokens(message text) - framing tokens; factor = sum(Claude content tokens) / sum(o200k_base tokens); held-out samples are excluded from fitting and evaluated only after factors are finalized",
   "models": [
     {
       "label": "claude",
@@ -1092,7 +1092,293 @@
           "claude_content_tokens": 211,
           "claude_per_o200k_ratio": 1.4452054794520548
         }
-      ]
+      ],
+      "held_out": {
+        "factor_source": "production calibration factors",
+        "global_factor": 1.654377,
+        "calibration_overrides": [
+          {
+            "language": "C#",
+            "factor": 1.907865
+          },
+          {
+            "language": "JSON",
+            "factor": 1.481303
+          },
+          {
+            "language": "SQL",
+            "factor": 1.997848
+          },
+          {
+            "language": "YAML",
+            "factor": 1.459644
+          }
+        ],
+        "summary": {
+          "samples": 20,
+          "o200k_tokens": 5631,
+          "claude_content_tokens": 8884,
+          "predicted_tokens": 9317,
+          "signed_aggregate_percent_error": 4.8739306618640255,
+          "mean_absolute_percent_error": 8.246546818752458
+        },
+        "per_language": {
+          "C": {
+            "samples": 5,
+            "o200k_tokens": 1412,
+            "claude_content_tokens": 2240,
+            "predicted_tokens": 2336,
+            "signed_aggregate_percent_error": 4.285714285714286,
+            "mean_absolute_percent_error": 7.04999907149554
+          },
+          "HTML": {
+            "samples": 5,
+            "o200k_tokens": 1710,
+            "claude_content_tokens": 2413,
+            "predicted_tokens": 2829,
+            "signed_aggregate_percent_error": 17.239950269374223,
+            "mean_absolute_percent_error": 17.269453157482022
+          },
+          "Kotlin": {
+            "samples": 5,
+            "o200k_tokens": 1249,
+            "claude_content_tokens": 2148,
+            "predicted_tokens": 2067,
+            "signed_aggregate_percent_error": -3.7709497206703912,
+            "mean_absolute_percent_error": 5.161064333645088
+          },
+          "Swift": {
+            "samples": 5,
+            "o200k_tokens": 1260,
+            "claude_content_tokens": 2083,
+            "predicted_tokens": 2085,
+            "signed_aggregate_percent_error": 0.09601536245799328,
+            "mean_absolute_percent_error": 3.505670712387179
+          }
+        },
+        "samples": [
+          {
+            "path": "holdout/c/csv_parser.c",
+            "language": "C",
+            "bytes": 1171,
+            "truncated": false,
+            "content_sha256": "ca546f124328302b5e011da0852a50a4a4719f86e50ff2ecea7abd1fef870958",
+            "o200k_tokens": 267,
+            "claude_raw_input_tokens": 420,
+            "claude_content_tokens": 409,
+            "claude_per_o200k_ratio": 1.5318352059925093
+          },
+          {
+            "path": "holdout/c/metrics.c",
+            "language": "C",
+            "bytes": 1058,
+            "truncated": false,
+            "content_sha256": "f4d7abf03acc7d75bfa3c723cc5df2e8cb3ae278eaea67d780cece15e90ce794",
+            "o200k_tokens": 260,
+            "claude_raw_input_tokens": 400,
+            "claude_content_tokens": 389,
+            "claude_per_o200k_ratio": 1.4961538461538462
+          },
+          {
+            "path": "holdout/c/path_table.c",
+            "language": "C",
+            "bytes": 1128,
+            "truncated": false,
+            "content_sha256": "fb12e6d69c9bc248025163da035ddd076add5f3761d55f35f7dc39f78cb1252f",
+            "o200k_tokens": 280,
+            "claude_raw_input_tokens": 502,
+            "claude_content_tokens": 491,
+            "claude_per_o200k_ratio": 1.7535714285714286
+          },
+          {
+            "path": "holdout/c/ring_buffer.c",
+            "language": "C",
+            "bytes": 993,
+            "truncated": false,
+            "content_sha256": "6ac42c05b60a51e25d21eda33bd704b94373c3652505db76adba631c2d599a25",
+            "o200k_tokens": 289,
+            "claude_raw_input_tokens": 452,
+            "claude_content_tokens": 441,
+            "claude_per_o200k_ratio": 1.5259515570934257
+          },
+          {
+            "path": "holdout/c/scheduler.c",
+            "language": "C",
+            "bytes": 1301,
+            "truncated": false,
+            "content_sha256": "eb8108aad4447671ec74e8c2f078e2695e9a8194fd081544fc5c8bad3df08cf5",
+            "o200k_tokens": 316,
+            "claude_raw_input_tokens": 521,
+            "claude_content_tokens": 510,
+            "claude_per_o200k_ratio": 1.6139240506329113
+          },
+          {
+            "path": "holdout/html/checkout.html",
+            "language": "HTML",
+            "bytes": 1396,
+            "truncated": false,
+            "content_sha256": "caefbfaa62b83b8c82bdaa480b62ca33b4a69e350d3676fa46603821b28e4f91",
+            "o200k_tokens": 372,
+            "claude_raw_input_tokens": 545,
+            "claude_content_tokens": 534,
+            "claude_per_o200k_ratio": 1.435483870967742
+          },
+          {
+            "path": "holdout/html/dashboard.html",
+            "language": "HTML",
+            "bytes": 1243,
+            "truncated": false,
+            "content_sha256": "00e5f20c56edbfcdd499767569006abdd509bffbb0397a6bce2e33c9b48fde0f",
+            "o200k_tokens": 402,
+            "claude_raw_input_tokens": 563,
+            "claude_content_tokens": 552,
+            "claude_per_o200k_ratio": 1.373134328358209
+          },
+          {
+            "path": "holdout/html/docs.html",
+            "language": "HTML",
+            "bytes": 1034,
+            "truncated": false,
+            "content_sha256": "58de2edb279b7813827a90009510e7ffab1974646631e43dd7f3f026c3143119",
+            "o200k_tokens": 318,
+            "claude_raw_input_tokens": 468,
+            "claude_content_tokens": 457,
+            "claude_per_o200k_ratio": 1.4371069182389937
+          },
+          {
+            "path": "holdout/html/settings.html",
+            "language": "HTML",
+            "bytes": 1289,
+            "truncated": false,
+            "content_sha256": "e578618153a0d2ef24e55f86a98e70a95cbce3d233ba9f5b1dcf20b532f36c27",
+            "o200k_tokens": 319,
+            "claude_raw_input_tokens": 473,
+            "claude_content_tokens": 462,
+            "claude_per_o200k_ratio": 1.4482758620689655
+          },
+          {
+            "path": "holdout/html/status.html",
+            "language": "HTML",
+            "bytes": 1038,
+            "truncated": false,
+            "content_sha256": "3605a23db975d4989afe557008c18bba939194af827a0e6863f26c27ffb42e5c",
+            "o200k_tokens": 299,
+            "claude_raw_input_tokens": 419,
+            "claude_content_tokens": 408,
+            "claude_per_o200k_ratio": 1.3645484949832776
+          },
+          {
+            "path": "holdout/kotlin/BatchWindow.kt",
+            "language": "Kotlin",
+            "bytes": 1080,
+            "truncated": false,
+            "content_sha256": "bc7a21683fea69038efc463f5ee39b0daa9e7324ad63cdc128ab770118aab30e",
+            "o200k_tokens": 253,
+            "claude_raw_input_tokens": 454,
+            "claude_content_tokens": 443,
+            "claude_per_o200k_ratio": 1.7509881422924902
+          },
+          {
+            "path": "holdout/kotlin/ConfigMerge.kt",
+            "language": "Kotlin",
+            "bytes": 1146,
+            "truncated": false,
+            "content_sha256": "1dc4f5e80cd9b7ffd0032a547197112467a6885f943b89c52a33a1512ade7732",
+            "o200k_tokens": 252,
+            "claude_raw_input_tokens": 441,
+            "claude_content_tokens": 430,
+            "claude_per_o200k_ratio": 1.7063492063492063
+          },
+          {
+            "path": "holdout/kotlin/EventRouter.kt",
+            "language": "Kotlin",
+            "bytes": 1110,
+            "truncated": false,
+            "content_sha256": "dffa9a15fdf9ac61b49a6b8e0eb91b0a41205fb0e2847077a2c1ea60342f5efb",
+            "o200k_tokens": 227,
+            "claude_raw_input_tokens": 438,
+            "claude_content_tokens": 427,
+            "claude_per_o200k_ratio": 1.881057268722467
+          },
+          {
+            "path": "holdout/kotlin/RetryQueue.kt",
+            "language": "Kotlin",
+            "bytes": 1023,
+            "truncated": false,
+            "content_sha256": "3ef04c525586a0659011f189e448deeb0e0f68221dae958db0a395f4857f317b",
+            "o200k_tokens": 251,
+            "claude_raw_input_tokens": 434,
+            "claude_content_tokens": 423,
+            "claude_per_o200k_ratio": 1.6852589641434264
+          },
+          {
+            "path": "holdout/kotlin/Stats.kt",
+            "language": "Kotlin",
+            "bytes": 1039,
+            "truncated": false,
+            "content_sha256": "1bbe0c5727c786cdd0f02df03d833e45a2ce36dc50bdf5f9e5adaf64c579e113",
+            "o200k_tokens": 266,
+            "claude_raw_input_tokens": 436,
+            "claude_content_tokens": 425,
+            "claude_per_o200k_ratio": 1.5977443609022557
+          },
+          {
+            "path": "holdout/swift/AsyncCache.swift",
+            "language": "Swift",
+            "bytes": 1022,
+            "truncated": false,
+            "content_sha256": "082f676cb598a9b5c3c79aef9b7bb8f1354373aeb2da6314ec82488fe276db9c",
+            "o200k_tokens": 248,
+            "claude_raw_input_tokens": 411,
+            "claude_content_tokens": 400,
+            "claude_per_o200k_ratio": 1.6129032258064515
+          },
+          {
+            "path": "holdout/swift/EventBus.swift",
+            "language": "Swift",
+            "bytes": 1012,
+            "truncated": false,
+            "content_sha256": "008f32a66b169c0951cd8dae73e0f49581e2e0c87508149e444a60691b8c0218",
+            "o200k_tokens": 241,
+            "claude_raw_input_tokens": 391,
+            "claude_content_tokens": 380,
+            "claude_per_o200k_ratio": 1.5767634854771784
+          },
+          {
+            "path": "holdout/swift/RetryPolicy.swift",
+            "language": "Swift",
+            "bytes": 1179,
+            "truncated": false,
+            "content_sha256": "9f6967086ff9c2185d4a129a4da5c52e74c0878a2a479db78d9d0ff3abbe4779",
+            "o200k_tokens": 273,
+            "claude_raw_input_tokens": 500,
+            "claude_content_tokens": 489,
+            "claude_per_o200k_ratio": 1.7912087912087913
+          },
+          {
+            "path": "holdout/swift/RouteMatcher.swift",
+            "language": "Swift",
+            "bytes": 1201,
+            "truncated": false,
+            "content_sha256": "702922f146b3b57a1a28a7a6f8df8f5f33ed6bc03760c5d0163a3eb851f8cfeb",
+            "o200k_tokens": 249,
+            "claude_raw_input_tokens": 416,
+            "claude_content_tokens": 405,
+            "claude_per_o200k_ratio": 1.6265060240963856
+          },
+          {
+            "path": "holdout/swift/SlidingWindow.swift",
+            "language": "Swift",
+            "bytes": 1065,
+            "truncated": false,
+            "content_sha256": "cc4ba3206006c0decc2751394f44a607302ce797794595de67aaf658f3ed3f16",
+            "o200k_tokens": 249,
+            "claude_raw_input_tokens": 420,
+            "claude_content_tokens": 409,
+            "claude_per_o200k_ratio": 1.642570281124498
+          }
+        ]
+      }
     },
     {
       "label": "claude-legacy",
@@ -2182,7 +2468,285 @@
           "claude_content_tokens": 171,
           "claude_per_o200k_ratio": 1.1712328767123288
         }
-      ]
+      ],
+      "held_out": {
+        "factor_source": "production calibration factors",
+        "global_factor": 1.250226,
+        "calibration_overrides": [
+          {
+            "language": "C#",
+            "factor": 1.404494
+          },
+          {
+            "language": "Markdown",
+            "factor": 1.119048
+          }
+        ],
+        "summary": {
+          "samples": 20,
+          "o200k_tokens": 5631,
+          "claude_content_tokens": 6889,
+          "predicted_tokens": 7040,
+          "signed_aggregate_percent_error": 2.191900130643054,
+          "mean_absolute_percent_error": 4.025896624526706
+        },
+        "per_language": {
+          "C": {
+            "samples": 5,
+            "o200k_tokens": 1412,
+            "claude_content_tokens": 1783,
+            "predicted_tokens": 1765,
+            "signed_aggregate_percent_error": -1.0095344924284912,
+            "mean_absolute_percent_error": 1.2362592042727185
+          },
+          "HTML": {
+            "samples": 5,
+            "o200k_tokens": 1710,
+            "claude_content_tokens": 1995,
+            "predicted_tokens": 2139,
+            "signed_aggregate_percent_error": 7.218045112781955,
+            "mean_absolute_percent_error": 7.258939116463469
+          },
+          "Kotlin": {
+            "samples": 5,
+            "o200k_tokens": 1249,
+            "claude_content_tokens": 1560,
+            "predicted_tokens": 1562,
+            "signed_aggregate_percent_error": 0.1282051282051282,
+            "mean_absolute_percent_error": 3.3560675530446806
+          },
+          "Swift": {
+            "samples": 5,
+            "o200k_tokens": 1260,
+            "claude_content_tokens": 1551,
+            "predicted_tokens": 1574,
+            "signed_aggregate_percent_error": 1.4829142488716958,
+            "mean_absolute_percent_error": 4.2523206243259555
+          }
+        },
+        "samples": [
+          {
+            "path": "holdout/c/csv_parser.c",
+            "language": "C",
+            "bytes": 1171,
+            "truncated": false,
+            "content_sha256": "ca546f124328302b5e011da0852a50a4a4719f86e50ff2ecea7abd1fef870958",
+            "o200k_tokens": 267,
+            "claude_raw_input_tokens": 351,
+            "claude_content_tokens": 344,
+            "claude_per_o200k_ratio": 1.2883895131086143
+          },
+          {
+            "path": "holdout/c/metrics.c",
+            "language": "C",
+            "bytes": 1058,
+            "truncated": false,
+            "content_sha256": "f4d7abf03acc7d75bfa3c723cc5df2e8cb3ae278eaea67d780cece15e90ce794",
+            "o200k_tokens": 260,
+            "claude_raw_input_tokens": 331,
+            "claude_content_tokens": 324,
+            "claude_per_o200k_ratio": 1.2461538461538462
+          },
+          {
+            "path": "holdout/c/path_table.c",
+            "language": "C",
+            "bytes": 1128,
+            "truncated": false,
+            "content_sha256": "fb12e6d69c9bc248025163da035ddd076add5f3761d55f35f7dc39f78cb1252f",
+            "o200k_tokens": 280,
+            "claude_raw_input_tokens": 363,
+            "claude_content_tokens": 356,
+            "claude_per_o200k_ratio": 1.2714285714285714
+          },
+          {
+            "path": "holdout/c/ring_buffer.c",
+            "language": "C",
+            "bytes": 993,
+            "truncated": false,
+            "content_sha256": "6ac42c05b60a51e25d21eda33bd704b94373c3652505db76adba631c2d599a25",
+            "o200k_tokens": 289,
+            "claude_raw_input_tokens": 367,
+            "claude_content_tokens": 360,
+            "claude_per_o200k_ratio": 1.245674740484429
+          },
+          {
+            "path": "holdout/c/scheduler.c",
+            "language": "C",
+            "bytes": 1301,
+            "truncated": false,
+            "content_sha256": "eb8108aad4447671ec74e8c2f078e2695e9a8194fd081544fc5c8bad3df08cf5",
+            "o200k_tokens": 316,
+            "claude_raw_input_tokens": 406,
+            "claude_content_tokens": 399,
+            "claude_per_o200k_ratio": 1.2626582278481013
+          },
+          {
+            "path": "holdout/html/checkout.html",
+            "language": "HTML",
+            "bytes": 1396,
+            "truncated": false,
+            "content_sha256": "caefbfaa62b83b8c82bdaa480b62ca33b4a69e350d3676fa46603821b28e4f91",
+            "o200k_tokens": 372,
+            "claude_raw_input_tokens": 443,
+            "claude_content_tokens": 436,
+            "claude_per_o200k_ratio": 1.1720430107526882
+          },
+          {
+            "path": "holdout/html/dashboard.html",
+            "language": "HTML",
+            "bytes": 1243,
+            "truncated": false,
+            "content_sha256": "00e5f20c56edbfcdd499767569006abdd509bffbb0397a6bce2e33c9b48fde0f",
+            "o200k_tokens": 402,
+            "claude_raw_input_tokens": 476,
+            "claude_content_tokens": 469,
+            "claude_per_o200k_ratio": 1.1666666666666667
+          },
+          {
+            "path": "holdout/html/docs.html",
+            "language": "HTML",
+            "bytes": 1034,
+            "truncated": false,
+            "content_sha256": "58de2edb279b7813827a90009510e7ffab1974646631e43dd7f3f026c3143119",
+            "o200k_tokens": 318,
+            "claude_raw_input_tokens": 380,
+            "claude_content_tokens": 373,
+            "claude_per_o200k_ratio": 1.1729559748427674
+          },
+          {
+            "path": "holdout/html/settings.html",
+            "language": "HTML",
+            "bytes": 1289,
+            "truncated": false,
+            "content_sha256": "e578618153a0d2ef24e55f86a98e70a95cbce3d233ba9f5b1dcf20b532f36c27",
+            "o200k_tokens": 319,
+            "claude_raw_input_tokens": 380,
+            "claude_content_tokens": 373,
+            "claude_per_o200k_ratio": 1.1692789968652038
+          },
+          {
+            "path": "holdout/html/status.html",
+            "language": "HTML",
+            "bytes": 1038,
+            "truncated": false,
+            "content_sha256": "3605a23db975d4989afe557008c18bba939194af827a0e6863f26c27ffb42e5c",
+            "o200k_tokens": 299,
+            "claude_raw_input_tokens": 351,
+            "claude_content_tokens": 344,
+            "claude_per_o200k_ratio": 1.1505016722408026
+          },
+          {
+            "path": "holdout/kotlin/BatchWindow.kt",
+            "language": "Kotlin",
+            "bytes": 1080,
+            "truncated": false,
+            "content_sha256": "bc7a21683fea69038efc463f5ee39b0daa9e7324ad63cdc128ab770118aab30e",
+            "o200k_tokens": 253,
+            "claude_raw_input_tokens": 320,
+            "claude_content_tokens": 313,
+            "claude_per_o200k_ratio": 1.2371541501976284
+          },
+          {
+            "path": "holdout/kotlin/ConfigMerge.kt",
+            "language": "Kotlin",
+            "bytes": 1146,
+            "truncated": false,
+            "content_sha256": "1dc4f5e80cd9b7ffd0032a547197112467a6885f943b89c52a33a1512ade7732",
+            "o200k_tokens": 252,
+            "claude_raw_input_tokens": 311,
+            "claude_content_tokens": 304,
+            "claude_per_o200k_ratio": 1.2063492063492063
+          },
+          {
+            "path": "holdout/kotlin/EventRouter.kt",
+            "language": "Kotlin",
+            "bytes": 1110,
+            "truncated": false,
+            "content_sha256": "dffa9a15fdf9ac61b49a6b8e0eb91b0a41205fb0e2847077a2c1ea60342f5efb",
+            "o200k_tokens": 227,
+            "claude_raw_input_tokens": 309,
+            "claude_content_tokens": 302,
+            "claude_per_o200k_ratio": 1.330396475770925
+          },
+          {
+            "path": "holdout/kotlin/RetryQueue.kt",
+            "language": "Kotlin",
+            "bytes": 1023,
+            "truncated": false,
+            "content_sha256": "3ef04c525586a0659011f189e448deeb0e0f68221dae958db0a395f4857f317b",
+            "o200k_tokens": 251,
+            "claude_raw_input_tokens": 328,
+            "claude_content_tokens": 321,
+            "claude_per_o200k_ratio": 1.2788844621513944
+          },
+          {
+            "path": "holdout/kotlin/Stats.kt",
+            "language": "Kotlin",
+            "bytes": 1039,
+            "truncated": false,
+            "content_sha256": "1bbe0c5727c786cdd0f02df03d833e45a2ce36dc50bdf5f9e5adaf64c579e113",
+            "o200k_tokens": 266,
+            "claude_raw_input_tokens": 327,
+            "claude_content_tokens": 320,
+            "claude_per_o200k_ratio": 1.2030075187969924
+          },
+          {
+            "path": "holdout/swift/AsyncCache.swift",
+            "language": "Swift",
+            "bytes": 1022,
+            "truncated": false,
+            "content_sha256": "082f676cb598a9b5c3c79aef9b7bb8f1354373aeb2da6314ec82488fe276db9c",
+            "o200k_tokens": 248,
+            "claude_raw_input_tokens": 300,
+            "claude_content_tokens": 293,
+            "claude_per_o200k_ratio": 1.1814516129032258
+          },
+          {
+            "path": "holdout/swift/EventBus.swift",
+            "language": "Swift",
+            "bytes": 1012,
+            "truncated": false,
+            "content_sha256": "008f32a66b169c0951cd8dae73e0f49581e2e0c87508149e444a60691b8c0218",
+            "o200k_tokens": 241,
+            "claude_raw_input_tokens": 298,
+            "claude_content_tokens": 291,
+            "claude_per_o200k_ratio": 1.2074688796680497
+          },
+          {
+            "path": "holdout/swift/RetryPolicy.swift",
+            "language": "Swift",
+            "bytes": 1179,
+            "truncated": false,
+            "content_sha256": "9f6967086ff9c2185d4a129a4da5c52e74c0878a2a479db78d9d0ff3abbe4779",
+            "o200k_tokens": 273,
+            "claude_raw_input_tokens": 370,
+            "claude_content_tokens": 363,
+            "claude_per_o200k_ratio": 1.3296703296703296
+          },
+          {
+            "path": "holdout/swift/RouteMatcher.swift",
+            "language": "Swift",
+            "bytes": 1201,
+            "truncated": false,
+            "content_sha256": "702922f146b3b57a1a28a7a6f8df8f5f33ed6bc03760c5d0163a3eb851f8cfeb",
+            "o200k_tokens": 249,
+            "claude_raw_input_tokens": 308,
+            "claude_content_tokens": 301,
+            "claude_per_o200k_ratio": 1.2088353413654618
+          },
+          {
+            "path": "holdout/swift/SlidingWindow.swift",
+            "language": "Swift",
+            "bytes": 1065,
+            "truncated": false,
+            "content_sha256": "cc4ba3206006c0decc2751394f44a607302ce797794595de67aaf658f3ed3f16",
+            "o200k_tokens": 249,
+            "claude_raw_input_tokens": 310,
+            "claude_content_tokens": 303,
+            "claude_per_o200k_ratio": 1.216867469879518
+          }
+        ]
+      }
     },
     {
       "label": "fable5",
@@ -3272,12 +3836,283 @@
           "claude_content_tokens": 211,
           "claude_per_o200k_ratio": 1.4452054794520548
         }
-      ]
+      ],
+      "held_out": {
+        "factor_source": "training global factor (no production mapping)",
+        "global_factor": 1.6543768378194978,
+        "summary": {
+          "samples": 20,
+          "o200k_tokens": 5631,
+          "claude_content_tokens": 8884,
+          "predicted_tokens": 9317,
+          "signed_aggregate_percent_error": 4.8739306618640255,
+          "mean_absolute_percent_error": 8.246546818752458
+        },
+        "per_language": {
+          "C": {
+            "samples": 5,
+            "o200k_tokens": 1412,
+            "claude_content_tokens": 2240,
+            "predicted_tokens": 2336,
+            "signed_aggregate_percent_error": 4.285714285714286,
+            "mean_absolute_percent_error": 7.04999907149554
+          },
+          "HTML": {
+            "samples": 5,
+            "o200k_tokens": 1710,
+            "claude_content_tokens": 2413,
+            "predicted_tokens": 2829,
+            "signed_aggregate_percent_error": 17.239950269374223,
+            "mean_absolute_percent_error": 17.269453157482022
+          },
+          "Kotlin": {
+            "samples": 5,
+            "o200k_tokens": 1249,
+            "claude_content_tokens": 2148,
+            "predicted_tokens": 2067,
+            "signed_aggregate_percent_error": -3.7709497206703912,
+            "mean_absolute_percent_error": 5.161064333645088
+          },
+          "Swift": {
+            "samples": 5,
+            "o200k_tokens": 1260,
+            "claude_content_tokens": 2083,
+            "predicted_tokens": 2085,
+            "signed_aggregate_percent_error": 0.09601536245799328,
+            "mean_absolute_percent_error": 3.505670712387179
+          }
+        },
+        "samples": [
+          {
+            "path": "holdout/c/csv_parser.c",
+            "language": "C",
+            "bytes": 1171,
+            "truncated": false,
+            "content_sha256": "ca546f124328302b5e011da0852a50a4a4719f86e50ff2ecea7abd1fef870958",
+            "o200k_tokens": 267,
+            "claude_raw_input_tokens": 415,
+            "claude_content_tokens": 409,
+            "claude_per_o200k_ratio": 1.5318352059925093
+          },
+          {
+            "path": "holdout/c/metrics.c",
+            "language": "C",
+            "bytes": 1058,
+            "truncated": false,
+            "content_sha256": "f4d7abf03acc7d75bfa3c723cc5df2e8cb3ae278eaea67d780cece15e90ce794",
+            "o200k_tokens": 260,
+            "claude_raw_input_tokens": 395,
+            "claude_content_tokens": 389,
+            "claude_per_o200k_ratio": 1.4961538461538462
+          },
+          {
+            "path": "holdout/c/path_table.c",
+            "language": "C",
+            "bytes": 1128,
+            "truncated": false,
+            "content_sha256": "fb12e6d69c9bc248025163da035ddd076add5f3761d55f35f7dc39f78cb1252f",
+            "o200k_tokens": 280,
+            "claude_raw_input_tokens": 497,
+            "claude_content_tokens": 491,
+            "claude_per_o200k_ratio": 1.7535714285714286
+          },
+          {
+            "path": "holdout/c/ring_buffer.c",
+            "language": "C",
+            "bytes": 993,
+            "truncated": false,
+            "content_sha256": "6ac42c05b60a51e25d21eda33bd704b94373c3652505db76adba631c2d599a25",
+            "o200k_tokens": 289,
+            "claude_raw_input_tokens": 447,
+            "claude_content_tokens": 441,
+            "claude_per_o200k_ratio": 1.5259515570934257
+          },
+          {
+            "path": "holdout/c/scheduler.c",
+            "language": "C",
+            "bytes": 1301,
+            "truncated": false,
+            "content_sha256": "eb8108aad4447671ec74e8c2f078e2695e9a8194fd081544fc5c8bad3df08cf5",
+            "o200k_tokens": 316,
+            "claude_raw_input_tokens": 516,
+            "claude_content_tokens": 510,
+            "claude_per_o200k_ratio": 1.6139240506329113
+          },
+          {
+            "path": "holdout/html/checkout.html",
+            "language": "HTML",
+            "bytes": 1396,
+            "truncated": false,
+            "content_sha256": "caefbfaa62b83b8c82bdaa480b62ca33b4a69e350d3676fa46603821b28e4f91",
+            "o200k_tokens": 372,
+            "claude_raw_input_tokens": 540,
+            "claude_content_tokens": 534,
+            "claude_per_o200k_ratio": 1.435483870967742
+          },
+          {
+            "path": "holdout/html/dashboard.html",
+            "language": "HTML",
+            "bytes": 1243,
+            "truncated": false,
+            "content_sha256": "00e5f20c56edbfcdd499767569006abdd509bffbb0397a6bce2e33c9b48fde0f",
+            "o200k_tokens": 402,
+            "claude_raw_input_tokens": 558,
+            "claude_content_tokens": 552,
+            "claude_per_o200k_ratio": 1.373134328358209
+          },
+          {
+            "path": "holdout/html/docs.html",
+            "language": "HTML",
+            "bytes": 1034,
+            "truncated": false,
+            "content_sha256": "58de2edb279b7813827a90009510e7ffab1974646631e43dd7f3f026c3143119",
+            "o200k_tokens": 318,
+            "claude_raw_input_tokens": 463,
+            "claude_content_tokens": 457,
+            "claude_per_o200k_ratio": 1.4371069182389937
+          },
+          {
+            "path": "holdout/html/settings.html",
+            "language": "HTML",
+            "bytes": 1289,
+            "truncated": false,
+            "content_sha256": "e578618153a0d2ef24e55f86a98e70a95cbce3d233ba9f5b1dcf20b532f36c27",
+            "o200k_tokens": 319,
+            "claude_raw_input_tokens": 468,
+            "claude_content_tokens": 462,
+            "claude_per_o200k_ratio": 1.4482758620689655
+          },
+          {
+            "path": "holdout/html/status.html",
+            "language": "HTML",
+            "bytes": 1038,
+            "truncated": false,
+            "content_sha256": "3605a23db975d4989afe557008c18bba939194af827a0e6863f26c27ffb42e5c",
+            "o200k_tokens": 299,
+            "claude_raw_input_tokens": 414,
+            "claude_content_tokens": 408,
+            "claude_per_o200k_ratio": 1.3645484949832776
+          },
+          {
+            "path": "holdout/kotlin/BatchWindow.kt",
+            "language": "Kotlin",
+            "bytes": 1080,
+            "truncated": false,
+            "content_sha256": "bc7a21683fea69038efc463f5ee39b0daa9e7324ad63cdc128ab770118aab30e",
+            "o200k_tokens": 253,
+            "claude_raw_input_tokens": 449,
+            "claude_content_tokens": 443,
+            "claude_per_o200k_ratio": 1.7509881422924902
+          },
+          {
+            "path": "holdout/kotlin/ConfigMerge.kt",
+            "language": "Kotlin",
+            "bytes": 1146,
+            "truncated": false,
+            "content_sha256": "1dc4f5e80cd9b7ffd0032a547197112467a6885f943b89c52a33a1512ade7732",
+            "o200k_tokens": 252,
+            "claude_raw_input_tokens": 436,
+            "claude_content_tokens": 430,
+            "claude_per_o200k_ratio": 1.7063492063492063
+          },
+          {
+            "path": "holdout/kotlin/EventRouter.kt",
+            "language": "Kotlin",
+            "bytes": 1110,
+            "truncated": false,
+            "content_sha256": "dffa9a15fdf9ac61b49a6b8e0eb91b0a41205fb0e2847077a2c1ea60342f5efb",
+            "o200k_tokens": 227,
+            "claude_raw_input_tokens": 433,
+            "claude_content_tokens": 427,
+            "claude_per_o200k_ratio": 1.881057268722467
+          },
+          {
+            "path": "holdout/kotlin/RetryQueue.kt",
+            "language": "Kotlin",
+            "bytes": 1023,
+            "truncated": false,
+            "content_sha256": "3ef04c525586a0659011f189e448deeb0e0f68221dae958db0a395f4857f317b",
+            "o200k_tokens": 251,
+            "claude_raw_input_tokens": 429,
+            "claude_content_tokens": 423,
+            "claude_per_o200k_ratio": 1.6852589641434264
+          },
+          {
+            "path": "holdout/kotlin/Stats.kt",
+            "language": "Kotlin",
+            "bytes": 1039,
+            "truncated": false,
+            "content_sha256": "1bbe0c5727c786cdd0f02df03d833e45a2ce36dc50bdf5f9e5adaf64c579e113",
+            "o200k_tokens": 266,
+            "claude_raw_input_tokens": 431,
+            "claude_content_tokens": 425,
+            "claude_per_o200k_ratio": 1.5977443609022557
+          },
+          {
+            "path": "holdout/swift/AsyncCache.swift",
+            "language": "Swift",
+            "bytes": 1022,
+            "truncated": false,
+            "content_sha256": "082f676cb598a9b5c3c79aef9b7bb8f1354373aeb2da6314ec82488fe276db9c",
+            "o200k_tokens": 248,
+            "claude_raw_input_tokens": 406,
+            "claude_content_tokens": 400,
+            "claude_per_o200k_ratio": 1.6129032258064515
+          },
+          {
+            "path": "holdout/swift/EventBus.swift",
+            "language": "Swift",
+            "bytes": 1012,
+            "truncated": false,
+            "content_sha256": "008f32a66b169c0951cd8dae73e0f49581e2e0c87508149e444a60691b8c0218",
+            "o200k_tokens": 241,
+            "claude_raw_input_tokens": 386,
+            "claude_content_tokens": 380,
+            "claude_per_o200k_ratio": 1.5767634854771784
+          },
+          {
+            "path": "holdout/swift/RetryPolicy.swift",
+            "language": "Swift",
+            "bytes": 1179,
+            "truncated": false,
+            "content_sha256": "9f6967086ff9c2185d4a129a4da5c52e74c0878a2a479db78d9d0ff3abbe4779",
+            "o200k_tokens": 273,
+            "claude_raw_input_tokens": 495,
+            "claude_content_tokens": 489,
+            "claude_per_o200k_ratio": 1.7912087912087913
+          },
+          {
+            "path": "holdout/swift/RouteMatcher.swift",
+            "language": "Swift",
+            "bytes": 1201,
+            "truncated": false,
+            "content_sha256": "702922f146b3b57a1a28a7a6f8df8f5f33ed6bc03760c5d0163a3eb851f8cfeb",
+            "o200k_tokens": 249,
+            "claude_raw_input_tokens": 411,
+            "claude_content_tokens": 405,
+            "claude_per_o200k_ratio": 1.6265060240963856
+          },
+          {
+            "path": "holdout/swift/SlidingWindow.swift",
+            "language": "Swift",
+            "bytes": 1065,
+            "truncated": false,
+            "content_sha256": "cc4ba3206006c0decc2751394f44a607302ce797794595de67aaf658f3ed3f16",
+            "o200k_tokens": 249,
+            "claude_raw_input_tokens": 415,
+            "claude_content_tokens": 409,
+            "claude_per_o200k_ratio": 1.642570281124498
+          }
+        ]
+      }
     }
   ],
   "sampling": {
     "inputs": [
       "tools/calibrate/testdata/corpus"
+    ],
+    "held_out_inputs": [
+      "tools/calibrate/testdata/holdout"
     ],
     "max_bytes_per_file": 32768,
     "max_files_per_language": 5,

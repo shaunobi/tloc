@@ -52,7 +52,7 @@ func TestRunPassesCanonicalLanguageToLanguageAwareCounter(t *testing.T) {
 	writeTestFile(t, dir, "main.go", content)
 	counter := &languageAwareCounter{tokens: 37}
 
-	_, records, err := Run([]string{dir}, counter, Options{Workers: 1})
+	_, records, _, err := Run([]string{dir}, counter, Options{Workers: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestRunFallsBackToPlainCounter(t *testing.T) {
 	writeTestFile(t, dir, "main.go", "package main\n")
 	counter := &recordingPlainCounter{tokens: 23}
 
-	_, records, err := Run([]string{dir}, counter, Options{Workers: 1})
+	_, records, _, err := Run([]string{dir}, counter, Options{Workers: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestRunReadsCountedFileOnce(t *testing.T) {
 		mu.Unlock()
 		return readFileLimited(path, maxFileBytes)
 	}
-	inputs, records, err := runWithReader([]string{dir}, byteCounter{}, Options{Workers: 2}, reader)
+	inputs, records, _, err := runWithReader([]string{dir}, byteCounter{}, Options{Workers: 2}, reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,6 +118,39 @@ func TestRunReadsCountedFileOnce(t *testing.T) {
 	}
 }
 
+func TestRunKeepsReadableRecordsAndReturnsDeterministicReadWarnings(t *testing.T) {
+	dir := t.TempDir()
+	goodPath := filepath.Join(dir, "good.go")
+	firstBadPath := filepath.Join(dir, "a_bad.go")
+	secondBadPath := filepath.Join(dir, "z_bad.go")
+	writeTestFile(t, dir, "good.go", "package good\n")
+	writeTestFile(t, dir, "a_bad.go", "package bad\n")
+	writeTestFile(t, dir, "z_bad.go", "package bad\n")
+
+	reader := func(path string, maxFileBytes int64) ([]byte, error) {
+		if path == firstBadPath || path == secondBadPath {
+			return nil, &os.PathError{Op: "open", Path: path, Err: errors.New("locked for test")}
+		}
+		return readFileLimited(path, maxFileBytes)
+	}
+	inputs, records, warnings, err := runWithReader([]string{dir}, byteCounter{}, Options{Workers: 3}, reader)
+	if err != nil {
+		t.Fatalf("recoverable read failures became fatal: %v", err)
+	}
+	if len(inputs) != 1 || len(records) != 1 || records[0].Path != filepath.ToSlash(goodPath) {
+		t.Fatalf("inputs=%#v records=%#v", inputs, records)
+	}
+	if len(warnings) != 2 {
+		t.Fatalf("warnings = %#v", warnings)
+	}
+	if warnings[0].Stage != "read" || warnings[0].Path != filepath.ToSlash(firstBadPath) || warnings[0].Message != "locked for test" {
+		t.Fatalf("first warning = %#v", warnings[0])
+	}
+	if warnings[1].Stage != "read" || warnings[1].Path != filepath.ToSlash(secondBadPath) || warnings[1].Message != "locked for test" {
+		t.Fatalf("second warning = %#v", warnings[1])
+	}
+}
+
 func TestRunBoundsReadsAndAcceptsAnExactCap(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.go")
@@ -126,7 +159,7 @@ func TestRunBoundsReadsAndAcceptsAnExactCap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, records, err := Run([]string{dir}, byteCounter{}, Options{
+	_, records, _, err := Run([]string{dir}, byteCounter{}, Options{
 		MaxFileBytes: int64(len(content)),
 		Workers:      1,
 	})
@@ -142,7 +175,7 @@ func TestRunBoundsReadsAndAcceptsAnExactCap(t *testing.T) {
 		readerCalls++
 		return append(content, 'x'), nil
 	}
-	_, records, err = runWithReader([]string{dir}, byteCounter{}, Options{
+	_, records, _, err = runWithReader([]string{dir}, byteCounter{}, Options{
 		MaxFileBytes: int64(len(content)),
 		Workers:      1,
 	}, growingReader)
@@ -174,7 +207,7 @@ func TestRunSkipsBinaryLargeUnknownAndFilteredFiles(t *testing.T) {
 	writeTestFile(t, dir, "binary.go", "package x\x00more")
 	writeTestFile(t, dir, "unknown.zzz", "unknown")
 
-	_, records, err := Run([]string{dir}, byteCounter{}, Options{
+	_, records, _, err := Run([]string{dir}, byteCounter{}, Options{
 		IncludeExt:   []string{"go", "zzz"},
 		MaxFileBytes: 20,
 		Workers:      3,
@@ -197,7 +230,7 @@ func TestRunHonorsIgnoreFilesAndDisableFlags(t *testing.T) {
 	writeTestFile(t, dir, ".ignore", "ignored.go\n")
 	writeTestFile(t, dir, ".sccignore", "sccignored.go\n")
 
-	_, records, err := Run([]string{dir}, byteCounter{}, Options{Workers: 2})
+	_, records, _, err := Run([]string{dir}, byteCounter{}, Options{Workers: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +238,7 @@ func TestRunHonorsIgnoreFilesAndDisableFlags(t *testing.T) {
 		t.Fatalf("default records = %#v", records)
 	}
 
-	_, records, err = Run([]string{dir}, byteCounter{}, Options{Workers: 2, NoIgnore: true, NoGitignore: true})
+	_, records, _, err = Run([]string{dir}, byteCounter{}, Options{Workers: 2, NoIgnore: true, NoGitignore: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +246,7 @@ func TestRunHonorsIgnoreFilesAndDisableFlags(t *testing.T) {
 		t.Fatalf("disabled ignores records = %#v", records)
 	}
 
-	_, records, err = Run([]string{dir}, byteCounter{}, Options{Workers: 2, NoIgnore: true})
+	_, records, _, err = Run([]string{dir}, byteCounter{}, Options{Workers: 2, NoIgnore: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +254,7 @@ func TestRunHonorsIgnoreFilesAndDisableFlags(t *testing.T) {
 		t.Fatalf("no-ignore records = %#v", records)
 	}
 
-	_, records, err = Run([]string{dir}, byteCounter{}, Options{Workers: 2, NoGitignore: true})
+	_, records, _, err = Run([]string{dir}, byteCounter{}, Options{Workers: 2, NoGitignore: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +269,7 @@ func TestRunHonorsNestedIgnoreNegation(t *testing.T) {
 	writeTestFile(t, dir, "nested/keep.go", "package keep\n")
 	writeTestFile(t, dir, ".gitignore", "nested/*.go\n!nested/keep.go\n")
 
-	_, records, err := Run([]string{dir}, byteCounter{}, Options{Workers: 2})
+	_, records, _, err := Run([]string{dir}, byteCounter{}, Options{Workers: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +289,7 @@ func TestRunExtensionFiltersDoNotOverrideIgnoreRules(t *testing.T) {
 	writeTestFile(t, dir, ".ignore", "ignored.go\n")
 	writeTestFile(t, dir, ".sccignore", "sccignored.go\n")
 
-	_, records, err := Run([]string{dir}, byteCounter{}, Options{
+	_, records, _, err := Run([]string{dir}, byteCounter{}, Options{
 		IncludeExt: []string{"go"},
 		ExcludeExt: []string{"ts"},
 		Workers:    2,
@@ -279,7 +312,7 @@ func TestRunExtensionFiltersMatchSCCCompoundAndDotfileExtensions(t *testing.T) {
 	writeTestFile(t, dir, ".bashrc", "#!/usr/bin/env bash\necho hello\n")
 	writeTestFile(t, dir, "xmake.lua", "target('demo')\n")
 
-	_, records, err := Run([]string{blade}, byteCounter{}, Options{
+	_, records, _, err := Run([]string{blade}, byteCounter{}, Options{
 		IncludeExt: []string{"blade.php"},
 		Workers:    1,
 	})
@@ -290,7 +323,7 @@ func TestRunExtensionFiltersMatchSCCCompoundAndDotfileExtensions(t *testing.T) {
 		t.Fatalf("compound direct-input records = %#v", records)
 	}
 
-	_, records, err = Run([]string{dir}, byteCounter{}, Options{
+	_, records, _, err = Run([]string{dir}, byteCounter{}, Options{
 		ExcludeExt: []string{"d.ts"},
 		Workers:    1,
 	})
@@ -303,7 +336,7 @@ func TestRunExtensionFiltersMatchSCCCompoundAndDotfileExtensions(t *testing.T) {
 		}
 	}
 
-	_, records, err = Run([]string{bashrc}, byteCounter{}, Options{Workers: 1})
+	_, records, _, err = Run([]string{bashrc}, byteCounter{}, Options{Workers: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +344,7 @@ func TestRunExtensionFiltersMatchSCCCompoundAndDotfileExtensions(t *testing.T) {
 		t.Fatalf("dotfile records = %#v", records)
 	}
 
-	_, records, err = Run([]string{definition}, byteCounter{}, Options{
+	_, records, _, err = Run([]string{definition}, byteCounter{}, Options{
 		IncludeExt: []string{"ts"},
 		Workers:    1,
 	})
@@ -322,7 +355,7 @@ func TestRunExtensionFiltersMatchSCCCompoundAndDotfileExtensions(t *testing.T) {
 		t.Fatalf("scc compound extension unexpectedly matched final suffix: %#v", records)
 	}
 
-	_, records, err = Run([]string{dir}, byteCounter{}, Options{
+	_, records, _, err = Run([]string{dir}, byteCounter{}, Options{
 		IncludeExt: []string{"lua"},
 		Workers:    1,
 	})
@@ -343,7 +376,7 @@ func TestRunSkipsSymlinkFilesLikeSCC(t *testing.T) {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 
-	_, records, err := Run([]string{link}, byteCounter{}, Options{Workers: 1})
+	_, records, _, err := Run([]string{link}, byteCounter{}, Options{Workers: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +393,7 @@ func TestRunSkipsExplicitIgnoreControlFiles(t *testing.T) {
 		paths = append(paths, filepath.Join(dir, name))
 	}
 
-	_, records, err := Run(paths, byteCounter{}, Options{Workers: 1})
+	_, records, _, err := Run(paths, byteCounter{}, Options{Workers: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +409,7 @@ func TestRunSupportsShebangAndMultipleInputs(t *testing.T) {
 	other := filepath.Join(dir, "other.go")
 	writeTestFile(t, dir, "other.go", "package other\n")
 
-	inputs, records, err := Run([]string{script, other}, byteCounter{}, Options{Workers: 2})
+	inputs, records, _, err := Run([]string{script, other}, byteCounter{}, Options{Workers: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -394,11 +427,11 @@ func TestRunIsDeterministicAcrossWorkerCompletionOrder(t *testing.T) {
 		writeTestFile(t, dir, filepath.ToSlash(filepath.Join("pkg", string(rune('a'+index))+".go")), "package p\n// delay:"+string(rune('0'+delay))+"\n")
 	}
 
-	_, sequential, err := Run([]string{dir}, delayedCounter{}, Options{Workers: 1})
+	_, sequential, _, err := Run([]string{dir}, delayedCounter{}, Options{Workers: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, concurrent, err := Run([]string{dir}, delayedCounter{}, Options{Workers: 5})
+	_, concurrent, _, err := Run([]string{dir}, delayedCounter{}, Options{Workers: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +453,7 @@ func TestRunReturnsTokenizerErrors(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, dir, "main.go", "package main\n")
 	counter := errorCounter{err: errors.New("boom")}
-	_, _, err := Run([]string{dir}, counter, Options{Workers: 1})
+	_, _, _, err := Run([]string{dir}, counter, Options{Workers: 1})
 	expectedPath := filepath.ToSlash(filepath.Join(dir, "main.go"))
 	if err == nil || !strings.Contains(err.Error(), "tokenize") || !strings.Contains(err.Error(), expectedPath) || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("err = %v", err)

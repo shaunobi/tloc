@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Notification settings</title></head>
+<body>
+  <main>
+    <h1>Notification settings</h1>
+    <form action="/settings/notifications" method="post">
+      <section aria-labelledby="delivery-heading">
+        <h2 id="delivery-heading">Delivery channels</h2>
+        <label><input type="checkbox" name="channel" value="email" checked> Email</label>
+        <label><input type="checkbox" name="channel" value="sms"> Text message</label>
+        <label><input type="checkbox" name="channel" value="push" checked> Push notification</label>
+      </section>
+      <section aria-labelledby="digest-heading">
+        <h2 id="digest-heading">Digest schedule</h2>
+        <label>Frequency
+          <select name="frequency">
+            <option value="immediate">Immediately</option>
+            <option value="daily" selected>Daily digest</option>
+            <option value="weekly">Weekly digest</option>
+          </select>
+        </label>
+        <label>Quiet hours begin <input type="time" name="quiet_start" value="22:00"></label>
+        <label>Quiet hours end <input type="time" name="quiet_end" value="07:00"></label>
+      </section>
+      <button type="submit">Save settings</button>
+    </form>
+  </main>
+</body>
+</html>

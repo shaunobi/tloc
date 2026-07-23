@@ -55,6 +55,21 @@ type FileRecord struct {
 	Metrics  Metrics
 }
 
+// ScanWarning records one recoverable filesystem problem. The scan continues,
+// but callers must treat the resulting report as incomplete.
+type ScanWarning struct {
+	Stage   string
+	Path    string
+	Message string
+}
+
+func (w ScanWarning) Error() string {
+	if w.Path == "" {
+		return fmt.Sprintf("%s: %s", w.Stage, w.Message)
+	}
+	return fmt.Sprintf("%s %q: %s", w.Stage, w.Path, w.Message)
+}
+
 type Options struct {
 	IncludeExt   []string
 	ExcludeExt   []string
@@ -76,8 +91,9 @@ type fileTask struct {
 }
 
 type processResult struct {
-	record *FileRecord
-	err    error
+	record  *FileRecord
+	warning *ScanWarning
+	err     error
 }
 
 type fileExclusion struct {
@@ -98,28 +114,28 @@ var processConstantsOnce sync.Once
 // Run discovers and analyzes paths. An empty path list scans the current
 // directory. Returned records are deterministic even though file processing is
 // concurrent.
-func Run(paths []string, counter tokenizer.Counter, options Options) ([]InputRoot, []FileRecord, error) {
+func Run(paths []string, counter tokenizer.Counter, options Options) ([]InputRoot, []FileRecord, []ScanWarning, error) {
 	return runWithReader(paths, counter, options, readFileLimited)
 }
 
-func runWithReader(paths []string, counter tokenizer.Counter, options Options, readFile func(string, int64) ([]byte, error)) ([]InputRoot, []FileRecord, error) {
+func runWithReader(paths []string, counter tokenizer.Counter, options Options, readFile func(string, int64) ([]byte, error)) ([]InputRoot, []FileRecord, []ScanWarning, error) {
 	if counter == nil {
-		return nil, nil, errors.New("token counter is nil")
+		return nil, nil, nil, errors.New("token counter is nil")
 	}
 	if options.MaxFileBytes == 0 {
 		options.MaxFileBytes = DefaultMaxFileBytes
 	}
 	if options.MaxFileBytes < 0 {
-		return nil, nil, errors.New("max file bytes must be greater than zero")
+		return nil, nil, nil, errors.New("max file bytes must be greater than zero")
 	}
 	if options.Workers == 0 {
 		options.Workers = runtime.GOMAXPROCS(0)
 	}
 	if options.Workers < 1 {
-		return nil, nil, errors.New("worker count must be greater than zero")
+		return nil, nil, nil, errors.New("worker count must be greater than zero")
 	}
 	if readFile == nil {
-		return nil, nil, errors.New("file reader is nil")
+		return nil, nil, nil, errors.New("file reader is nil")
 	}
 	if len(paths) == 0 {
 		paths = []string{"."}
@@ -128,14 +144,16 @@ func runWithReader(paths []string, counter tokenizer.Counter, options Options, r
 	processConstantsOnce.Do(processor.ProcessConstants)
 	inputs, err := resolveInputs(paths)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	var tasks []fileTask
+	var scanWarnings []ScanWarning
 	var discoverErrors []error
 	for _, input := range inputs {
-		found, discoverErr := discover(input, options)
+		found, warnings, discoverErr := discover(input, options)
 		tasks = append(tasks, found...)
+		scanWarnings = append(scanWarnings, warnings...)
 		if discoverErr != nil {
 			discoverErrors = append(discoverErrors, discoverErr)
 		}
@@ -165,6 +183,10 @@ func runWithReader(paths []string, counter tokenizer.Counter, options Options, r
 	records := make([]FileRecord, 0, len(tasks))
 	processErrors := make([]error, 0)
 	for result := range results {
+		if result.warning != nil {
+			scanWarnings = append(scanWarnings, *result.warning)
+			continue
+		}
 		if result.err != nil {
 			processErrors = append(processErrors, result.err)
 			continue
@@ -184,11 +206,12 @@ func runWithReader(paths []string, counter tokenizer.Counter, options Options, r
 	})
 
 	allErrors := append(discoverErrors, processErrors...)
+	sortScanWarnings(scanWarnings)
 	if len(allErrors) > 0 {
 		slices.SortFunc(allErrors, func(a, b error) int { return strings.Compare(a.Error(), b.Error()) })
-		return inputs, records, errors.Join(allErrors...)
+		return inputs, records, scanWarnings, errors.Join(allErrors...)
 	}
-	return inputs, records, nil
+	return inputs, records, scanWarnings, nil
 }
 
 func resolveInputs(paths []string) ([]InputRoot, error) {
@@ -221,14 +244,14 @@ func resolveInputs(paths []string) ([]InputRoot, error) {
 	return inputs, nil
 }
 
-func discover(input InputRoot, options Options) ([]fileTask, error) {
+func discover(input InputRoot, options Options) ([]fileTask, []ScanWarning, error) {
 	excludedFiles := prepareFileExclusions(options.ExcludeFiles)
 	if input.Kind == InputFile {
 		if match := excludedFiles.match(input.Abs); match != exclusionNone {
-			return nil, fmt.Errorf("input %q is the output file or an alias of it", input.Given)
+			return nil, nil, fmt.Errorf("input %q is the output file or an alias of it", input.Given)
 		}
 		if !extensionAllowed(filepath.Base(input.Abs), options.IncludeExt, options.ExcludeExt) {
-			return nil, nil
+			return nil, nil, nil
 		}
 		return []fileTask{{
 			input:           input,
@@ -237,7 +260,7 @@ func discover(input InputRoot, options Options) ([]fileTask, error) {
 			relPath:         filepath.ToSlash(filepath.Base(input.Abs)),
 			display:         input.Given,
 			allowListActive: len(options.IncludeExt) > 0,
-		}}, nil
+		}}, nil, nil
 	}
 
 	queue := make(chan *gocodewalker.File, max(32, runtime.GOMAXPROCS(0)*2))
@@ -251,7 +274,15 @@ func discover(input InputRoot, options Options) ([]fileTask, error) {
 	if !options.NoIgnore {
 		walker.CustomIgnore = []string{".sccignore"}
 	}
-	walker.SetErrorHandler(func(error) bool { return false })
+	var warningMutex sync.Mutex
+	warnings := make([]ScanWarning, 0)
+	walker.SetErrorHandler(func(err error) bool {
+		warning := newScanWarning("walk", "", err)
+		warningMutex.Lock()
+		warnings = append(warnings, warning)
+		warningMutex.Unlock()
+		return true
+	})
 
 	errQueue := make(chan error, 1)
 	go func() { errQueue <- walker.Start() }()
@@ -277,7 +308,7 @@ func discover(input InputRoot, options Options) ([]fileTask, error) {
 		}
 		rel, err := filepath.Rel(input.Abs, location)
 		if err != nil {
-			return nil, fmt.Errorf("make %q relative to %q: %w", location, input.Given, err)
+			return nil, warnings, fmt.Errorf("make %q relative to %q: %w", location, input.Given, err)
 		}
 		rel = filepath.ToSlash(rel)
 		tasks = append(tasks, fileTask{
@@ -290,18 +321,19 @@ func discover(input InputRoot, options Options) ([]fileTask, error) {
 		})
 	}
 	if err := <-errQueue; err != nil {
-		return tasks, fmt.Errorf("walk %q: %w", input.Given, err)
+		return tasks, warnings, fmt.Errorf("walk %q: %w", input.Given, err)
 	}
 	if aliasError != nil {
-		return tasks, aliasError
+		return tasks, warnings, aliasError
 	}
-	return tasks, nil
+	return tasks, warnings, nil
 }
 
 func process(task fileTask, counter tokenizer.Counter, maxFileBytes int64, readFile func(string, int64) ([]byte, error)) processResult {
 	info, err := os.Lstat(task.location)
 	if err != nil {
-		return processResult{err: fmt.Errorf("inspect %q: %w", task.display, err)}
+		warning := newScanWarning("inspect", task.display, err)
+		return processResult{warning: &warning}
 	}
 	if !info.Mode().IsRegular() || info.Size() > maxFileBytes {
 		return processResult{}
@@ -318,7 +350,8 @@ func process(task fileTask, counter tokenizer.Counter, maxFileBytes int64, readF
 	}
 	content, err := readFile(task.location, maxFileBytes)
 	if err != nil {
-		return processResult{err: fmt.Errorf("read %q: %w", task.display, err)}
+		warning := newScanWarning("read", task.display, err)
+		return processResult{warning: &warning}
 	}
 	if int64(len(content)) > maxFileBytes {
 		return processResult{}
@@ -368,6 +401,36 @@ func process(task fileTask, counter tokenizer.Counter, maxFileBytes int64, readF
 		},
 	}
 	return processResult{record: record}
+}
+
+func newScanWarning(stage, path string, err error) ScanWarning {
+	message := err.Error()
+	var pathError *os.PathError
+	if errors.As(err, &pathError) {
+		if path == "" {
+			path = pathError.Path
+		}
+		if pathError.Err != nil {
+			message = pathError.Err.Error()
+		}
+	}
+	return ScanWarning{
+		Stage:   stage,
+		Path:    filepath.ToSlash(path),
+		Message: message,
+	}
+}
+
+func sortScanWarnings(warnings []ScanWarning) {
+	slices.SortFunc(warnings, func(a, b ScanWarning) int {
+		if comparison := strings.Compare(a.Path, b.Path); comparison != 0 {
+			return comparison
+		}
+		if comparison := strings.Compare(a.Stage, b.Stage); comparison != 0 {
+			return comparison
+		}
+		return strings.Compare(a.Message, b.Message)
+	})
 }
 
 // readFileLimited reads at most maxFileBytes+1 bytes. The extra byte lets the

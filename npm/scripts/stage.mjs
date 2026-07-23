@@ -55,6 +55,121 @@ export const TARGETS = Object.freeze([
   }),
 ]);
 
+const expectedBinaryFormat = Object.freeze({
+  darwin: "Mach-O",
+  linux: "ELF",
+  windows: "PE",
+});
+
+function architectureName(machine, machines, width) {
+  return machines.get(machine) ?? `unknown(0x${machine.toString(16).padStart(width, "0")})`;
+}
+
+export function inspectBinaryHeader(content) {
+  if (!Buffer.isBuffer(content)) {
+    throw new TypeError("binary content must be a Buffer");
+  }
+
+  if (
+    content.length >= 20 &&
+    content[0] === 0x7f &&
+    content.subarray(1, 4).equals(Buffer.from("ELF"))
+  ) {
+    if (content[4] !== 2 || content[5] !== 1) {
+      throw new Error(
+        `unsupported ELF class/data ${content[4]}/${content[5]}; expected 64-bit little-endian`,
+      );
+    }
+    const machine = content.readUInt16LE(18);
+    return {
+      format: "ELF",
+      arch: architectureName(
+        machine,
+        new Map([
+          [0x3e, "amd64"],
+          [0xb7, "arm64"],
+        ]),
+        4,
+      ),
+    };
+  }
+
+  if (
+    content.length >= 2 &&
+    content[0] === 0x4d &&
+    content[1] === 0x5a
+  ) {
+    if (content.length < 64) {
+      throw new Error("truncated PE DOS header");
+    }
+    const peOffset = content.readUInt32LE(0x3c);
+    if (
+      peOffset > content.length - 6 ||
+      !content.subarray(peOffset, peOffset + 4).equals(Buffer.from("PE\0\0"))
+    ) {
+      throw new Error("invalid PE signature offset");
+    }
+    const machine = content.readUInt16LE(peOffset + 4);
+    return {
+      format: "PE",
+      arch: architectureName(
+        machine,
+        new Map([
+          [0x8664, "amd64"],
+          [0xaa64, "arm64"],
+        ]),
+        4,
+      ),
+    };
+  }
+
+  if (content.length >= 8) {
+    let readMachine;
+    if (content.readUInt32LE(0) === 0xfeedfacf) {
+      readMachine = () => content.readUInt32LE(4);
+    } else if (content.readUInt32BE(0) === 0xfeedfacf) {
+      readMachine = () => content.readUInt32BE(4);
+    }
+    if (readMachine) {
+      const machine = readMachine();
+      return {
+        format: "Mach-O",
+        arch: architectureName(
+          machine,
+          new Map([
+            [0x01000007, "amd64"],
+            [0x0100000c, "arm64"],
+          ]),
+          8,
+        ),
+      };
+    }
+  }
+
+  const magic = content.subarray(0, 4).toString("hex").padEnd(8, "0");
+  throw new Error(`unrecognized executable magic 0x${magic}`);
+}
+
+export function assertBinaryTarget(binaryPath, target) {
+  let header;
+  try {
+    header = inspectBinaryHeader(readFileSync(binaryPath));
+  } catch (error) {
+    throw new Error(
+      `invalid binary for ${target.goos}/${target.goarch} at ${binaryPath}: ${error.message}`,
+    );
+  }
+
+  const expectedFormat = expectedBinaryFormat[target.goos];
+  if (header.format !== expectedFormat || header.arch !== target.goarch) {
+    throw new Error(
+      `binary header mismatch for ${target.goos}/${target.goarch} at ` +
+        `${binaryPath}: found ${header.format}/${header.arch}`,
+    );
+  }
+  return header;
+}
+
 export function normalizeVersion(input) {
   const version = String(input || "").trim().replace(/^v/, "");
   const identifier = "[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*";
@@ -202,15 +317,15 @@ export function stagePackages({
   const document = readJSON(artifactsFile);
   const artifacts = Array.isArray(document) ? document : document.artifacts;
   const selections = selectBinaryArtifacts(artifacts).map(
-    ({ target, artifact }) => ({
-      target,
-      artifact,
-      binaryPath: resolveArtifactPath(
+    ({ target, artifact }) => {
+      const binaryPath = resolveArtifactPath(
         artifactValue(artifact, "path", "Path"),
         repoRoot,
         artifactsFile,
-      ),
-    }),
+      );
+      assertBinaryTarget(binaryPath, target);
+      return { target, artifact, binaryPath };
+    },
   );
 
   rmSync(outputDir, { recursive: true, force: true });

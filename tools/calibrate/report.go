@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/shaunobi/tloc/internal/tokenizer"
 )
 
 type calibrationReport struct {
@@ -22,6 +24,7 @@ type calibrationReport struct {
 
 type samplingMetadata struct {
 	Inputs              []string `json:"inputs"`
+	HeldOutInputs       []string `json:"held_out_inputs,omitempty"`
 	MaxBytesPerFile     int      `json:"max_bytes_per_file"`
 	MaxFilesPerLanguage int      `json:"max_files_per_language"`
 	MaxSamples          int      `json:"max_samples"`
@@ -34,6 +37,25 @@ type modelReport struct {
 	Global          ratioSummary                    `json:"global"`
 	PerLanguage     map[string]languageRatioSummary `json:"per_language"`
 	Samples         []measurement                   `json:"samples"`
+	HeldOut         *heldOutEvaluation              `json:"held_out,omitempty"`
+}
+
+type heldOutEvaluation struct {
+	FactorSource         string                          `json:"factor_source"`
+	GlobalFactor         float64                         `json:"global_factor"`
+	CalibrationOverrides []tokenizer.CalibrationOverride `json:"calibration_overrides,omitempty"`
+	Summary              evaluationSummary               `json:"summary"`
+	PerLanguage          map[string]evaluationSummary    `json:"per_language"`
+	Samples              []measurement                   `json:"samples"`
+}
+
+type evaluationSummary struct {
+	Samples                  int     `json:"samples"`
+	O200KTokens              int64   `json:"o200k_tokens"`
+	ClaudeContentTokens      int64   `json:"claude_content_tokens"`
+	PredictedTokens          int64   `json:"predicted_tokens"`
+	SignedAggregateError     float64 `json:"signed_aggregate_percent_error"`
+	MeanAbsolutePercentError float64 `json:"mean_absolute_percent_error"`
 }
 
 type measurement struct {
@@ -192,6 +214,85 @@ func finalizeModelReport(report *modelReport) {
 	}
 }
 
+func finalizeHeldOutEvaluation(report *modelReport, samples []measurement) error {
+	if len(samples) == 0 {
+		report.HeldOut = nil
+		return nil
+	}
+
+	factorSource := "training global factor (no production mapping)"
+	globalFactor := report.Global.Factor
+	var overrides []tokenizer.CalibrationOverride
+	if report.Label == tokenizer.NameClaude || report.Label == tokenizer.NameClaudeLegacy {
+		_, metadata, err := tokenizer.New(report.Label)
+		if err != nil {
+			return fmt.Errorf("load production factors for held-out %s evaluation: %w", report.Label, err)
+		}
+		factorSource = "production calibration factors"
+		globalFactor = metadata.CalibrationFactor
+		overrides = append([]tokenizer.CalibrationOverride(nil), metadata.CalibrationOverrides...)
+	}
+
+	byLanguage := make(map[string][]measurement)
+	for _, sample := range samples {
+		byLanguage[sample.Language] = append(byLanguage[sample.Language], sample)
+	}
+	perLanguage := make(map[string]evaluationSummary, len(byLanguage))
+	for language, languageSamples := range byLanguage {
+		perLanguage[language] = evaluateCalibrationFactors(languageSamples, globalFactor, overrides)
+	}
+	report.HeldOut = &heldOutEvaluation{
+		FactorSource:         factorSource,
+		GlobalFactor:         globalFactor,
+		CalibrationOverrides: overrides,
+		Summary:              evaluateCalibrationFactors(samples, globalFactor, overrides),
+		PerLanguage:          perLanguage,
+		Samples:              append([]measurement(nil), samples...),
+	}
+	return nil
+}
+
+func evaluateCalibrationFactors(measurements []measurement, globalFactor float64, overrides []tokenizer.CalibrationOverride) evaluationSummary {
+	factors := make(map[string]float64, len(overrides))
+	for _, override := range overrides {
+		factors[override.Language] = override.Factor
+	}
+
+	summary := evaluationSummary{Samples: len(measurements)}
+	var absolutePercentErrorTotal float64
+	var errorSamples int
+	for _, sample := range measurements {
+		factor := globalFactor
+		if override, ok := factors[sample.Language]; ok {
+			factor = override
+		}
+		prediction := roundedPrediction(sample.O200KTokens, factor)
+		summary.O200KTokens += sample.O200KTokens
+		summary.ClaudeContentTokens += sample.ClaudeContentTokens
+		summary.PredictedTokens += prediction
+		if sample.ClaudeContentTokens > 0 {
+			absolutePercentErrorTotal += math.Abs(float64(prediction-sample.ClaudeContentTokens)) / float64(sample.ClaudeContentTokens) * 100
+			errorSamples++
+		}
+	}
+	if summary.ClaudeContentTokens > 0 {
+		summary.SignedAggregateError = float64(summary.PredictedTokens-summary.ClaudeContentTokens) / float64(summary.ClaudeContentTokens) * 100
+	}
+	if errorSamples > 0 {
+		summary.MeanAbsolutePercentError = absolutePercentErrorTotal / float64(errorSamples)
+	}
+	return summary
+}
+
+func calibrationFactorForLanguage(globalFactor float64, overrides []tokenizer.CalibrationOverride, language string) (float64, string) {
+	for _, override := range overrides {
+		if override.Language == language {
+			return override.Factor, "language override"
+		}
+	}
+	return globalFactor, "global fallback"
+}
+
 func writeReports(outputDirectory string, report calibrationReport) (string, string, error) {
 	if err := os.MkdirAll(outputDirectory, 0o755); err != nil {
 		return "", "", fmt.Errorf("create output directory: %w", err)
@@ -245,6 +346,41 @@ func renderMarkdown(report calibrationReport) string {
 				summary.MeanAbsolutePercentError, summary.GlobalFactorSignedAggregatePercentError,
 				summary.GlobalFactorMeanAbsolutePercentError,
 				formatLeaveOneOutMAPE(summary.LeaveOneOutMeanAbsolutePercentError, summary.Samples))
+		}
+
+		if model.HeldOut != nil {
+			heldOut := model.HeldOut
+			fmt.Fprintf(&output, "\n### Held-out evaluation\n\n")
+			fmt.Fprintf(&output, "These samples were not used to fit or select calibration factors. Factor source: %s.\n\n", heldOut.FactorSource)
+			fmt.Fprintf(&output, "| Language | Samples | Factor used | Factor basis | o200k tokens | Claude content tokens | Predicted tokens | Signed aggregate error | MAPE |\n")
+			fmt.Fprintf(&output, "|---|---:|---:|---|---:|---:|---:|---:|---:|\n")
+			heldOutLanguages := make([]string, 0, len(heldOut.PerLanguage))
+			for language := range heldOut.PerLanguage {
+				heldOutLanguages = append(heldOutLanguages, language)
+			}
+			sort.Strings(heldOutLanguages)
+			for _, language := range heldOutLanguages {
+				summary := heldOut.PerLanguage[language]
+				factor, basis := calibrationFactorForLanguage(heldOut.GlobalFactor, heldOut.CalibrationOverrides, language)
+				fmt.Fprintf(&output, "| %s | %d | %.6f | %s | %d | %d | %d | %+.2f%% | %.2f%% |\n",
+					language, summary.Samples, factor, basis, summary.O200KTokens,
+					summary.ClaudeContentTokens, summary.PredictedTokens,
+					summary.SignedAggregateError, summary.MeanAbsolutePercentError)
+			}
+			fmt.Fprintf(&output, "| **Overall** | **%d** |  |  | **%d** | **%d** | **%d** | **%+.2f%%** | **%.2f%%** |\n",
+				heldOut.Summary.Samples, heldOut.Summary.O200KTokens,
+				heldOut.Summary.ClaudeContentTokens, heldOut.Summary.PredictedTokens,
+				heldOut.Summary.SignedAggregateError, heldOut.Summary.MeanAbsolutePercentError)
+
+			fmt.Fprintf(&output, "\n<details>\n<summary>Held-out per-file measurements</summary>\n\n")
+			fmt.Fprintf(&output, "| File | Language | Bytes | Truncated | o200k | Claude content | Ratio |\n")
+			fmt.Fprintf(&output, "|---|---|---:|:---:|---:|---:|---:|\n")
+			for _, sample := range heldOut.Samples {
+				fmt.Fprintf(&output, "| `%s` | %s | %d | %t | %d | %d | %.6f |\n",
+					escapeMarkdown(sample.Path), sample.Language, sample.Bytes, sample.Truncated,
+					sample.O200KTokens, sample.ClaudeContentTokens, sample.ClaudePerO200KRatio)
+			}
+			fmt.Fprintf(&output, "\n</details>\n")
 		}
 
 		fmt.Fprintf(&output, "\n<details>\n<summary>Per-file measurements</summary>\n\n")

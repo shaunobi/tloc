@@ -19,14 +19,17 @@ dry run makes no API calls.
 
 ## Re-derive the factors
 
-1. Start with the checked-in authored corpus, which contains five varied files
-   in each of 16 languages. Add other code trees when validating a workload not
-   represented there. Avoid generated, vendored, or tiny files.
+1. Start with the checked-in authored calibration corpus, which contains five
+   varied files in each of 16 languages. The separate authored holdout contains
+   five files each in C, HTML, Kotlin, and Swift. Holdout files are never used
+   to fit factors. Add other code trees when validating a workload not
+   represented by either set. Avoid generated, vendored, or tiny files.
 2. From the repository root, inspect the deterministic sample plan:
 
    ```powershell
    go run ./tools/calibrate --dry-run `
      --samples tools/calibrate/testdata/corpus `
+     --holdout tools/calibrate/testdata/holdout `
      --max-per-language 5 `
      --max-samples 100
    ```
@@ -43,6 +46,7 @@ dry run makes no API calls.
      --legacy-model LEGACY_MODEL_ID `
      --spot-model fable5=SPOT_CHECK_MODEL_ID `
      --samples tools/calibrate/testdata/corpus `
+     --holdout tools/calibrate/testdata/holdout `
      --samples C:\path\to\corpus-a `
      --samples C:\path\to\corpus-b `
      --max-per-language 5 `
@@ -51,8 +55,11 @@ dry run makes no API calls.
    Remove-Item Env:ANTHROPIC_API_KEY
    ```
 
-   `--spot-model label=model-id` is repeatable. Spot models appear in the report
-   but do not map to a compile-time factor automatically.
+   `--spot-model label=model-id`, `--samples`, and `--holdout` are repeatable.
+   Spot models appear in the report but do not map to a compile-time factor
+   automatically. The same byte and sample caps apply independently to the
+   calibration and held-out sets. The tool rejects held-out content whose hash
+   duplicates any fitting sample.
 
 5. Review `tools/calibrate/results/calibration.json` (machine-readable) and
    `calibration.md` (human-readable). The reported factor is:
@@ -69,7 +76,11 @@ dry run makes no API calls.
    factors, content hashes, and mean absolute percentage error (MAPE). Each
    language row separately shows error from the model-global factor and
    leave-one-out error from fitting that language's other samples, so a low
-   fitted-factor MAPE cannot hide a poor global estimate.
+   fitted-factor MAPE cannot hide a poor global estimate. When `--holdout` is
+   present, a separate section records its ground truth and evaluates it only
+   after fitting is complete. Current and legacy labels use the factors compiled
+   into tloc; an unmapped spot label uses that model's calibration-set global
+   factor and is identified as such.
 6. Prefer one global factor per generation. Add a language override only when
    the global-factor language error is materially above the roughly 10% target,
    leave-one-out fitting improves it by several points, and the result is not
@@ -83,9 +94,11 @@ dry run makes no API calls.
 
 ## Sampling behavior
 
-The checked-in `testdata/corpus` is a balanced, authored cross-language baseline:
-five substantive files in each of 16 languages. Combine it with larger
-real-world trees when evaluating a specialized workload. The collector
+The checked-in `testdata/corpus` is a balanced, authored fitting baseline: five
+substantive files in each of 16 languages. `testdata/holdout` is disjoint and
+exists to measure generalization to four languages absent from the fitting
+baseline. Combine these with larger real-world trees when evaluating a
+specialized workload. The collector
 recognizes common programming-language extensions and special filenames such as
 `Dockerfile` and `Makefile`. It skips binary/non-UTF-8 files, lockfiles,
 symlinks, caches, generated results, and common dependency directories. Files

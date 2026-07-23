@@ -39,12 +39,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          is_draft="$(
-            gh release view "$GITHUB_REF_NAME" \
-              --repo "$GITHUB_REPOSITORY" \
-              --json isDraft \
-              --jq .isDraft 2>/dev/null || true
-          )"
+          encoded_tag="$(jq -rn --arg tag "$GITHUB_REF_NAME" '$tag | @uri')"
+          endpoint="repos/$GITHUB_REPOSITORY/releases/tags/$encoded_tag"
+          if release_json="$(gh api "$endpoint" 2>&1)"; then
+            is_draft="$(
+              jq -r \
+                'if (.draft | type) == "boolean" then .draft else error("missing draft state") end' \
+                <<<"$release_json"
+            )"
+          else
+            status=$?
+            if [[ "$release_json" == *"HTTP 404"* ]]; then
+              echo "published=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            printf '%s\n' "$release_json" >&2
+            exit "$status"
+          fi
           if [[ "$is_draft" == "false" ]]; then
             echo "published=true" >> "$GITHUB_OUTPUT"
           else

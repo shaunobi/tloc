@@ -132,6 +132,67 @@ func TestFinalizeModelReportAndMarkdown(t *testing.T) {
 	}
 }
 
+func TestFinalizeHeldOutEvaluationUsesFinalizedTrainingFactor(t *testing.T) {
+	report := modelReport{
+		Label:  "spot-model",
+		Global: ratioSummary{Factor: 1.2},
+	}
+	heldOut := []measurement{
+		{Path: "holdout/a.go", Language: "Go", O200KTokens: 10, ClaudeContentTokens: 15, ClaudePerO200KRatio: 1.5},
+		{Path: "holdout/b.py", Language: "Python", O200KTokens: 20, ClaudeContentTokens: 20, ClaudePerO200KRatio: 1},
+	}
+	if err := finalizeHeldOutEvaluation(&report, heldOut); err != nil {
+		t.Fatal(err)
+	}
+	if report.HeldOut == nil {
+		t.Fatal("held-out evaluation is nil")
+	}
+	if report.HeldOut.FactorSource != "training global factor (no production mapping)" || report.HeldOut.GlobalFactor != 1.2 {
+		t.Fatalf("held-out factor plan = %+v", report.HeldOut)
+	}
+	if report.HeldOut.Summary.Samples != 2 || report.HeldOut.Summary.PredictedTokens != 36 {
+		t.Fatalf("held-out summary = %+v", report.HeldOut.Summary)
+	}
+	assertNear(t, report.HeldOut.Summary.SignedAggregateError, 1.0/35.0*100, 1e-12)
+	assertNear(t, report.HeldOut.Summary.MeanAbsolutePercentError, 20, 1e-12)
+	if report.HeldOut.PerLanguage["Go"].PredictedTokens != 12 || report.HeldOut.PerLanguage["Python"].PredictedTokens != 24 {
+		t.Fatalf("held-out language summaries = %+v", report.HeldOut.PerLanguage)
+	}
+
+	markdown := renderMarkdown(calibrationReport{Models: []modelReport{report}})
+	for _, expected := range []string{
+		"Held-out evaluation", "not used to fit or select", "training global factor",
+		"holdout/a.go", "**Overall**", "+2.86%", "20.00%",
+	} {
+		if !strings.Contains(markdown, expected) {
+			t.Errorf("held-out Markdown missing %q", expected)
+		}
+	}
+}
+
+func TestFinalizeHeldOutEvaluationUsesProductionOverrides(t *testing.T) {
+	report := modelReport{Label: "claude", Global: ratioSummary{Factor: 99}}
+	heldOut := []measurement{
+		{Language: "C#", O200KTokens: 10, ClaudeContentTokens: 19},
+		{Language: "Go", O200KTokens: 10, ClaudeContentTokens: 17},
+	}
+	if err := finalizeHeldOutEvaluation(&report, heldOut); err != nil {
+		t.Fatal(err)
+	}
+	if report.HeldOut.FactorSource != "production calibration factors" {
+		t.Fatalf("factor source = %q", report.HeldOut.FactorSource)
+	}
+	if report.HeldOut.GlobalFactor != 1.654377 {
+		t.Fatalf("global factor = %.6f", report.HeldOut.GlobalFactor)
+	}
+	if report.HeldOut.PerLanguage["C#"].PredictedTokens != 19 {
+		t.Errorf("C# override prediction = %d, want 19", report.HeldOut.PerLanguage["C#"].PredictedTokens)
+	}
+	if report.HeldOut.PerLanguage["Go"].PredictedTokens != 17 {
+		t.Errorf("Go fallback prediction = %d, want 17", report.HeldOut.PerLanguage["Go"].PredictedTokens)
+	}
+}
+
 func TestFramingBaselineFromProbe(t *testing.T) {
 	for _, test := range []struct {
 		name string

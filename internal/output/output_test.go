@@ -172,6 +172,65 @@ func TestJSONCalibrationMetadataIsExplicitAndDeterministic(t *testing.T) {
 	}
 }
 
+func TestMachineFormatsExposeIncompleteReportsAndSkippedEntries(t *testing.T) {
+	report := goldenReport()
+	report.Metadata.Complete = false
+	report.Metadata.Skipped = []model.SkippedEntry{{
+		Stage: "read",
+		Path:  "locked.go",
+		Error: "sharing violation",
+	}}
+
+	var jsonBuffer bytes.Buffer
+	if err := WriteJSON(&jsonBuffer, report, model.ViewLanguage); err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Metadata struct {
+			Complete bool `json:"complete"`
+			Skipped  []struct {
+				Stage string `json:"stage"`
+				Path  string `json:"path"`
+				Error string `json:"error"`
+			} `json:"skipped"`
+		} `json:"metadata"`
+	}
+	if err := json.Unmarshal(jsonBuffer.Bytes(), &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.Metadata.Complete || len(document.Metadata.Skipped) != 1 ||
+		document.Metadata.Skipped[0].Stage != "read" ||
+		document.Metadata.Skipped[0].Path != "locked.go" ||
+		document.Metadata.Skipped[0].Error != "sharing violation" {
+		t.Fatalf("JSON completeness metadata = %#v", document.Metadata)
+	}
+
+	var csvBuffer bytes.Buffer
+	if err := WriteCSV(&csvBuffer, report, model.ViewLanguage); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := csv.NewReader(&csvBuffer).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := rows[0]
+	index := make(map[string]int, len(header))
+	for column, name := range header {
+		index[name] = column
+	}
+	if rows[1][index["record_type"]] != "data" || rows[1][index["complete"]] != "false" {
+		t.Fatalf("CSV data status = %#v", rows[1])
+	}
+	skipped := rows[len(rows)-1]
+	if skipped[index["record_type"]] != "skipped" ||
+		skipped[index["complete"]] != "false" ||
+		skipped[index["skipped_stage"]] != "read" ||
+		skipped[index["skipped_path"]] != "locked.go" ||
+		skipped[index["skipped_error"]] != "sharing violation" {
+		t.Fatalf("CSV skipped row = %#v", skipped)
+	}
+}
+
 func TestFolderMachineOutputPreservesSubtreeIdentity(t *testing.T) {
 	report := model.Report{Folders: []model.FolderRow{
 		{InputID: 0, Path: "src/pkg", Name: "pkg", Depth: 1},
@@ -276,6 +335,7 @@ func TestCSVDoesNotExposeCalibrationMetadata(t *testing.T) {
 		Tokenizer:         "claude",
 		CalibrationFactor: 1.25,
 		Estimated:         true,
+		Complete:          true,
 		CalibrationOverrides: []model.CalibrationOverride{
 			{Language: "Go", Factor: 1.1},
 		},
@@ -305,6 +365,64 @@ func TestTruncateIsRuneSafe(t *testing.T) {
 	}
 }
 
+func TestFileTableHeadTrimsPathsAndPreservesDistinctTails(t *testing.T) {
+	common := strings.Repeat("shared/very-long-directory/", 3)
+	report := model.Report{Files: []model.FileRecord{
+		{Path: common + "alpha.go", Language: "Go"},
+		{Path: common + "beta.go", Language: "Go"},
+		{Path: strings.Repeat("界/", 30) + "e\u0301nd.go", Language: "Go"},
+	}}
+
+	rows := tabularTable(report, model.ViewFile).rows
+	for index, wantSuffix := range []string{"alpha.go", "beta.go", "e\u0301nd.go"} {
+		got := rows[index][0]
+		if !strings.HasPrefix(got, "…") || !strings.HasSuffix(got, wantSuffix) {
+			t.Fatalf("trimmed path %d = %q, want ellipsis prefix and suffix %q", index, got, wantSuffix)
+		}
+		if width := runewidth.StringWidth(got); width > maxFileWidth {
+			t.Fatalf("trimmed path %d width = %d, want <= %d: %q", index, width, maxFileWidth, got)
+		}
+	}
+	if rows[0][0] == rows[1][0] {
+		t.Fatalf("distinct path tails collapsed to one label: %q", rows[0][0])
+	}
+}
+
+func TestFolderTableDoesNotSpendNameBudgetOnIndentation(t *testing.T) {
+	const (
+		depth = 30
+		name  = "deep-leaf-directory"
+	)
+	report := model.Report{Folders: []model.FolderRow{{
+		Name:  name,
+		Depth: depth,
+	}}}
+
+	got := tabularTable(report, model.ViewFolder).rows[0][0]
+	want := strings.Repeat("  ", depth) + name
+	if got != want {
+		t.Fatalf("deep folder label = %q, want %q", got, want)
+	}
+	if got == "…" || !strings.HasSuffix(got, name) {
+		t.Fatalf("deep folder lost its useful name: %q", got)
+	}
+
+	longName := strings.Repeat("界", 30)
+	report.Folders[0].Name = longName
+	got = tabularTable(report, model.ViewFolder).rows[0][0]
+	indent := strings.Repeat("  ", depth)
+	if !strings.HasPrefix(got, indent) {
+		t.Fatalf("long deep folder lost hierarchy indentation: %q", got)
+	}
+	displayName := strings.TrimPrefix(got, indent)
+	if width := runewidth.StringWidth(displayName); width > maxFolderWidth {
+		t.Fatalf("folder name width = %d, want <= %d: %q", width, maxFolderWidth, displayName)
+	}
+	if displayName == "…" || !strings.HasSuffix(displayName, "…") {
+		t.Fatalf("long deep folder name was not usefully truncated: %q", displayName)
+	}
+}
+
 func TestWriteValidationAndWriterErrors(t *testing.T) {
 	report := goldenReport()
 	if err := Write(io.Discard, report, model.View(99), FormatJSON); err == nil {
@@ -326,9 +444,9 @@ func TestCSVHeaders(t *testing.T) {
 		view model.View
 		want []string
 	}{
-		{model.ViewLanguage, []string{"language", "files", "lines", "code", "comments", "blanks", "complexity", "bytes", "tokens"}},
-		{model.ViewFile, []string{"language", "path", "files", "lines", "code", "comments", "blanks", "complexity", "bytes", "tokens"}},
-		{model.ViewFolder, []string{"folder", "input_id", "depth", "synthetic", "files", "lines", "code", "comments", "blanks", "complexity", "bytes", "tokens"}},
+		{model.ViewLanguage, []string{"language", "files", "lines", "code", "comments", "blanks", "complexity", "bytes", "tokens", "record_type", "complete", "skipped_stage", "skipped_path", "skipped_error"}},
+		{model.ViewFile, []string{"language", "path", "files", "lines", "code", "comments", "blanks", "complexity", "bytes", "tokens", "record_type", "complete", "skipped_stage", "skipped_path", "skipped_error"}},
+		{model.ViewFolder, []string{"folder", "input_id", "depth", "synthetic", "files", "lines", "code", "comments", "blanks", "complexity", "bytes", "tokens", "record_type", "complete", "skipped_stage", "skipped_path", "skipped_error"}},
 	}
 	for _, test := range tests {
 		var buffer bytes.Buffer
@@ -378,6 +496,7 @@ func goldenReport() model.Report {
 			Version:           "test-version",
 			Tokenizer:         "o200k",
 			CalibrationFactor: 1,
+			Complete:          true,
 		},
 	}
 }

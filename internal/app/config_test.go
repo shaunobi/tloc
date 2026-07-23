@@ -50,6 +50,7 @@ func TestParseConfigValidation(t *testing.T) {
 		{"--format", "xml"},
 		{"--sort", "bytes"},
 		{"--max-file-bytes", "0"},
+		{"--force"},
 	}
 	for _, args := range tests {
 		if _, err := parseConfig(args, &bytes.Buffer{}); err == nil {
@@ -68,7 +69,7 @@ func TestUsageCoversAccuracyAndFlags(t *testing.T) {
 		t.Fatal("help was not set")
 	}
 	for _, want := range []string{
-		"--tokenizer", "--by-file", "--by-folder", "--format", "--output", "--sort",
+		"--tokenizer", "--by-file", "--by-folder", "--format", "--output", "--force", "--sort",
 		"--include-ext", "--exclude-ext", "--exclude-dir", "--max-file-bytes",
 		"--no-ignore", "--no-gitignore", "--version", "--help",
 	} {
@@ -82,5 +83,11 @@ func TestUsageCoversAccuracyAndFlags(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), calibrationText) {
 		t.Fatalf("usage missing %q:\n%s", calibrationText, output.String())
+	}
+	if !strings.Contains(output.String(), "10% error on represented languages") {
+		t.Fatalf("usage missing roughly 10%% accuracy target:\n%s", output.String())
+	}
+	if !strings.Contains(output.String(), "without direct validation") {
+		t.Fatalf("usage missing unrepresented-language caveat:\n%s", output.String())
 	}
 }

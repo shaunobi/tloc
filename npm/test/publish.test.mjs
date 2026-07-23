@@ -7,6 +7,8 @@ import {
   distTagForVersion,
   PACKAGE_DIRECTORIES,
   publishPackages,
+  resolveNpmInvocation,
+  runNpm,
 } from "../scripts/publish.mjs";
 
 function stagedPackages(t, version = "1.2.3") {
@@ -30,6 +32,45 @@ test("distTagForVersion keeps prereleases away from latest", () => {
   assert.equal(distTagForVersion("1.2.3+build-4"), "latest");
   assert.equal(distTagForVersion("1.2.3-rc.1"), "next");
   assert.equal(distTagForVersion("v2.0.0-beta.2+build.4"), "next");
+});
+
+test("Windows npm.cmd fallback executes npm-cli.js without a shell", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "tloc-npm-command-shim-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const shim = resolve(root, "npm.cmd");
+  const cli = resolve(root, "unusual-layout", "npm-cli.js");
+  mkdirSync(resolve(cli, ".."), { recursive: true });
+  writeFileSync(
+    shim,
+    `@"node" "${cli}" %*\n`,
+    "utf8",
+  );
+  writeFileSync(
+    cli,
+    "process.stdout.write(JSON.stringify(process.argv.slice(2)));\n",
+    "utf8",
+  );
+
+  const invocation = resolveNpmInvocation({
+    platform: "win32",
+    nodeExecutable: process.execPath,
+    cliCandidates: [shim],
+  });
+  assert.deepEqual(invocation, {
+    command: process.execPath,
+    commandArguments: [cli],
+  });
+
+  const hostileArgument = "safe & echo shell-injection";
+  const result = runNpm(["view", hostileArgument], {
+    capture: true,
+    platform: "win32",
+    nodeExecutable: process.execPath,
+    cliCandidates: [shim],
+  });
+  assert.equal(result.status, 0, result.error?.message || result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), ["view", hostileArgument]);
 });
 
 test("publishPackages skips existing versions and keeps the wrapper last", (t) => {

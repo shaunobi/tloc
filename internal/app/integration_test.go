@@ -22,7 +22,7 @@ func TestIntegrationFixtureMatchesSCCOracle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inputs, files, err := analyze.Run([]string{fixture}, counter, analyze.Options{Workers: 4})
+	inputs, files, _, err := analyze.Run([]string{fixture}, counter, analyze.Options{Workers: 4})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestIntegrationDisableIgnoreHandling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, files, err := analyze.Run([]string{fixture}, counter, analyze.Options{Workers: 4, NoIgnore: true, NoGitignore: true})
+	_, files, _, err := analyze.Run([]string{fixture}, counter, analyze.Options{Workers: 4, NoIgnore: true, NoGitignore: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,11 +115,12 @@ func TestIntegrationOutputInsideScanIsStableAndCannotOverwriteInput(t *testing.T
 		t.Fatal(err)
 	}
 
-	for run := 1; run <= 2; run++ {
+	runAndCheck := func(args []string, label string) {
+		t.Helper()
 		var stdout, stderr bytes.Buffer
-		code := Main([]string{"--format", "json", "--by-file", "--output", outputPath, dir}, &stdout, &stderr)
+		code := Main(args, &stdout, &stderr)
 		if code != 0 {
-			t.Fatalf("run %d code=%d stderr=%q", run, code, stderr.String())
+			t.Fatalf("%s code=%d stderr=%q", label, code, stderr.String())
 		}
 		reportBytes, err := os.ReadFile(outputPath)
 		if err != nil {
@@ -134,9 +135,20 @@ func TestIntegrationOutputInsideScanIsStableAndCannotOverwriteInput(t *testing.T
 			t.Fatal(err)
 		}
 		if report.Totals.Files != 1 {
-			t.Fatalf("run %d files=%d, want 1", run, report.Totals.Files)
+			t.Fatalf("%s files=%d, want 1", label, report.Totals.Files)
 		}
 	}
+	baseArgs := []string{"--format", "json", "--by-file", "--output", outputPath, dir}
+	runAndCheck(baseArgs, "initial run")
+
+	var refusedStdout, refusedStderr bytes.Buffer
+	if code := Main(baseArgs, &refusedStdout, &refusedStderr); code == 0 {
+		t.Fatal("repeat run overwrote an existing report without --force")
+	}
+	if !strings.Contains(refusedStderr.String(), "--force") {
+		t.Fatalf("repeat-run stderr=%q", refusedStderr.String())
+	}
+	runAndCheck([]string{"--format", "json", "--by-file", "--output", outputPath, "--force", dir}, "forced repeat")
 
 	var stdout, stderr bytes.Buffer
 	if code := Main([]string{"--output", sourcePath, sourcePath}, &stdout, &stderr); code == 0 {
@@ -149,12 +161,24 @@ func TestIntegrationOutputInsideScanIsStableAndCannotOverwriteInput(t *testing.T
 	if !bytes.Equal(got, content) {
 		t.Fatalf("input was overwritten: %q", got)
 	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := Main([]string{"--force", "--output", sourcePath, sourcePath}, &stdout, &stderr); code == 0 {
+		t.Fatalf("--force bypassed input/output collision protection")
+	}
+	got, err = os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, content) {
+		t.Fatalf("forced collision overwrote input: %q", got)
+	}
 
 	aliasPath := filepath.Join(dir, "source-alias.go")
 	if err := os.Link(sourcePath, aliasPath); err == nil {
 		stdout.Reset()
 		stderr.Reset()
-		if code := Main([]string{"--output", aliasPath, sourcePath}, &stdout, &stderr); code == 0 {
+		if code := Main([]string{"--force", "--output", aliasPath, sourcePath}, &stdout, &stderr); code == 0 {
 			t.Fatalf("hard-linked input/output collision succeeded")
 		}
 		got, err = os.ReadFile(sourcePath)
@@ -167,7 +191,7 @@ func TestIntegrationOutputInsideScanIsStableAndCannotOverwriteInput(t *testing.T
 
 		stdout.Reset()
 		stderr.Reset()
-		if code := Main([]string{"--output", aliasPath, dir}, &stdout, &stderr); code == 0 {
+		if code := Main([]string{"--force", "--output", aliasPath, dir}, &stdout, &stderr); code == 0 {
 			t.Fatalf("directory scan with hard-linked output collision succeeded")
 		}
 		got, err = os.ReadFile(sourcePath)

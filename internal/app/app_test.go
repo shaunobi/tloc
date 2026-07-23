@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shaunobi/tloc/internal/analyze"
 	"github.com/shaunobi/tloc/internal/tokenizer"
 )
 
@@ -63,6 +64,49 @@ func TestMainRejectsInvalidFlags(t *testing.T) {
 		t.Fatalf("code=%d stderr=%q", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "mutually exclusive") {
+		t.Fatalf("stderr=%q", stderr.String())
+	}
+}
+
+func TestMainRendersPartialReportWarnsAndReturnsFailure(t *testing.T) {
+	analyzer := func([]string, tokenizer.Counter, analyze.Options) ([]analyze.InputRoot, []analyze.FileRecord, []analyze.ScanWarning, error) {
+		return []analyze.InputRoot{{
+				ID:    0,
+				Given: ".",
+				Abs:   "test-root",
+				Kind:  analyze.InputDirectory,
+			}}, []analyze.FileRecord{{
+				InputID:  0,
+				Path:     "good.go",
+				RelPath:  "good.go",
+				Language: "Go",
+				Metrics: analyze.Metrics{
+					Files:  1,
+					Lines:  1,
+					Code:   1,
+					Bytes:  13,
+					Tokens: 3,
+				},
+			}}, []analyze.ScanWarning{{
+				Stage:   "read",
+				Path:    "locked.go",
+				Message: "sharing violation",
+			}}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := mainWithAnalyzer([]string{"--format", "json", "--by-file", "."}, &stdout, &stderr, analyzer)
+	if code != 1 {
+		t.Fatalf("code=%d, want 1; stderr=%q stdout=%q", code, stderr.String(), stdout.String())
+	}
+	for _, want := range []string{`"path": "good.go"`, `"complete": false`, `"stage": "read"`, `"path": "locked.go"`, `"error": "sharing violation"`} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("partial JSON missing %q:\n%s", want, stdout.String())
+		}
+	}
+	if !strings.Contains(stderr.String(), "warning: incomplete scan") ||
+		!strings.Contains(stderr.String(), "locked.go") ||
+		!strings.Contains(stderr.String(), "sharing violation") {
 		t.Fatalf("stderr=%q", stderr.String())
 	}
 }

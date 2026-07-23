@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Queue API reference</title>
+</head>
+<body>
+  <article>
+    <header>
+      <h1>Queue API</h1>
+      <p>Create durable jobs and inspect their status.</p>
+    </header>
+    <section id="create-job">
+      <h2><code>POST /v1/jobs</code></h2>
+      <p>The request body contains a task name and JSON payload.</p>
+      <pre><code>{
+  "task": "rebuild-index",
+  "payload": {"tenant": "north"},
+  "priority": 3
+}</code></pre>
+      <h3>Responses</h3>
+      <dl>
+        <dt><code>202 Accepted</code></dt><dd>The job was queued.</dd>
+        <dt><code>400 Bad Request</code></dt><dd>The payload failed validation.</dd>
+        <dt><code>429 Too Many Requests</code></dt><dd>Retry after the supplied delay.</dd>
+      </dl>
+    </section>
+    <section id="job-status">
+      <h2><code>GET /v1/jobs/{id}</code></h2>
+      <p>Returns <code>queued</code>, <code>running</code>, <code>complete</code>, or <code>failed</code>.</p>
+    </section>
+  </article>
+</body>
+</html>

@@ -124,6 +124,22 @@ func newFolderTree() *folderTree {
 }
 
 func (t *folderTree) add(input model.InputRoot, file model.FileRecord) {
+	if input.Kind == model.InputFile {
+		root := t.roots[input.ID]
+		if root == nil {
+			root = &folderNode{
+				inputID:    input.ID,
+				name:       rootFilesName,
+				outputPath: directFileBucketPath(input.Given),
+				synthetic:  true,
+				children:   make(map[string]*folderNode),
+			}
+			t.roots[input.ID] = root
+		}
+		root.metrics.Add(file.Metrics)
+		return
+	}
+
 	root := t.roots[input.ID]
 	if root == nil {
 		rootName := input.Given
@@ -325,4 +341,18 @@ func joinOutputPath(root, relative string) string {
 		return relative
 	}
 	return strings.TrimRight(root, "/") + "/" + strings.TrimLeft(relative, "/")
+}
+
+func directFileBucketPath(inputPath string) string {
+	// Input paths are slash-normalized before aggregation. Derive the parent
+	// lexically so labels such as "./src" and UNC prefixes remain as given.
+	separator := strings.LastIndex(inputPath, "/")
+	if separator < 0 {
+		return rootFilesName
+	}
+	parent := inputPath[:separator]
+	if parent == "" {
+		parent = "/"
+	}
+	return joinOutputPath(parent, rootFilesName)
 }

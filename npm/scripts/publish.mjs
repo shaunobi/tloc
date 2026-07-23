@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { delimiter, dirname, extname, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { normalizeVersion } from "./stage.mjs";
@@ -26,15 +26,12 @@ export const PACKAGE_DIRECTORIES = Object.freeze([
   "tloc",
 ]);
 
-export function runNpm(
-  args,
-  { capture = false, env = process.env } = {},
-) {
-  const cliCandidates = [
-    process.env.npm_execpath,
-    resolve(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"),
+function npmCliFromCommandShim(shimPath, { exists, readFile }) {
+  const shimDirectory = dirname(shimPath);
+  const adjacentCandidates = [
+    resolve(shimDirectory, "node_modules", "npm", "bin", "npm-cli.js"),
     resolve(
-      dirname(process.execPath),
+      shimDirectory,
       "..",
       "lib",
       "node_modules",
@@ -42,16 +39,169 @@ export function runNpm(
       "bin",
       "npm-cli.js",
     ),
-  ].filter(Boolean);
-  const cli = cliCandidates.find((candidate) => existsSync(candidate));
-  const command = cli ? process.execPath : process.platform === "win32" ? "npm.cmd" : "npm";
-  const commandArguments = cli ? [cli, ...args] : args;
-  return spawnSync(command, commandArguments, {
-    encoding: "utf8",
+  ];
+  for (const candidate of adjacentCandidates) {
+    if (exists(candidate)) {
+      return candidate;
+    }
+  }
+
+  let source;
+  try {
+    source = readFile(shimPath, "utf8");
+  } catch {
+    return null;
+  }
+
+  // npm's Windows shim ultimately invokes npm-cli.js. Resolve that file and
+  // execute it with Node instead of opting into shell parsing for arbitrary
+  // publish paths and arguments.
+  for (const match of source.matchAll(/["']([^"'\r\n]*npm-cli\.js)["']/gi)) {
+    const expanded = match[1].replace(
+      /%(?:~dp0|dp0%)/gi,
+      `${shimDirectory}${sep}`,
+    );
+    if (/%[^%]+%/.test(expanded)) {
+      continue;
+    }
+    const candidate = resolve(shimDirectory, expanded);
+    if (exists(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function invocationForCandidate(
+  candidate,
+  { platform, nodeExecutable, exists, readFile },
+) {
+  if (!candidate || !exists(candidate)) {
+    return null;
+  }
+
+  const extension = extname(candidate).toLowerCase();
+  if (extension === ".js" || extension === ".cjs" || extension === ".mjs") {
+    return { command: nodeExecutable, commandArguments: [candidate] };
+  }
+  if (
+    platform === "win32" &&
+    (extension === ".cmd" || extension === ".bat")
+  ) {
+    const cli = npmCliFromCommandShim(candidate, { exists, readFile });
+    return cli
+      ? { command: nodeExecutable, commandArguments: [cli] }
+      : null;
+  }
+  return { command: candidate, commandArguments: [] };
+}
+
+export function resolveNpmInvocation({
+  env = process.env,
+  platform = process.platform,
+  nodeExecutable = process.execPath,
+  cliCandidates,
+  exists = existsSync,
+  readFile = readFileSync,
+} = {}) {
+  const candidates =
+    cliCandidates ??
+    [
+      env.npm_execpath,
+      resolve(
+        dirname(nodeExecutable),
+        "node_modules",
+        "npm",
+        "bin",
+        "npm-cli.js",
+      ),
+      resolve(
+        dirname(nodeExecutable),
+        "..",
+        "lib",
+        "node_modules",
+        "npm",
+        "bin",
+        "npm-cli.js",
+      ),
+    ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const invocation = invocationForCandidate(candidate, {
+      platform,
+      nodeExecutable,
+      exists,
+      readFile,
+    });
+    if (invocation) {
+      return invocation;
+    }
+  }
+
+  if (platform !== "win32") {
+    return { command: "npm", commandArguments: [] };
+  }
+
+  const pathValue = env.Path ?? env.PATH ?? env.path ?? "";
+  for (const directory of pathValue.split(delimiter).filter(Boolean)) {
+    for (const filename of ["npm.exe", "npm.cmd", "npm.bat"]) {
+      const invocation = invocationForCandidate(resolve(directory, filename), {
+        platform,
+        nodeExecutable,
+        exists,
+        readFile,
+      });
+      if (invocation) {
+        return invocation;
+      }
+    }
+  }
+  return null;
+}
+
+export function runNpm(
+  args,
+  {
+    capture = false,
+    env = process.env,
+    platform = process.platform,
+    nodeExecutable = process.execPath,
+    cliCandidates,
+    exists = existsSync,
+    readFile = readFileSync,
+  } = {},
+) {
+  const invocation = resolveNpmInvocation({
     env,
-    stdio: capture ? "pipe" : "inherit",
-    windowsHide: true,
+    platform,
+    nodeExecutable,
+    cliCandidates,
+    exists,
+    readFile,
   });
+  if (!invocation) {
+    const error = new Error(
+      "could not locate npm-cli.js behind npm.cmd; set npm_execpath or install npm next to Node",
+    );
+    error.code = "ENOENT";
+    return {
+      error,
+      status: null,
+      signal: null,
+      stdout: capture ? "" : null,
+      stderr: capture ? "" : null,
+    };
+  }
+  return spawnSync(
+    invocation.command,
+    [...invocation.commandArguments, ...args],
+    {
+      encoding: "utf8",
+      env,
+      stdio: capture ? "pipe" : "inherit",
+      windowsHide: true,
+    },
+  );
 }
 
 function assertCommand(result, description) {

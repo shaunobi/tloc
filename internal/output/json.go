@@ -28,12 +28,21 @@ func WriteJSON(w io.Writer, report model.Report, view model.View) error {
 			CalibrationFactor:    report.Metadata.CalibrationFactor,
 			Estimated:            report.Metadata.Estimated,
 			CalibrationOverrides: make([]jsonCalibrationOverride, 0, len(overrides)),
+			Complete:             report.Metadata.Complete,
+			Skipped:              make([]jsonSkippedEntry, 0, len(report.Metadata.Skipped)),
 		},
 	}
 	for _, override := range overrides {
 		document.Metadata.CalibrationOverrides = append(document.Metadata.CalibrationOverrides, jsonCalibrationOverride{
 			Language: override.Language,
 			Factor:   override.Factor,
+		})
+	}
+	for _, skipped := range report.Metadata.Skipped {
+		document.Metadata.Skipped = append(document.Metadata.Skipped, jsonSkippedEntry{
+			Stage: skipped.Stage,
+			Path:  skipped.Path,
+			Error: skipped.Error,
 		})
 	}
 	for _, language := range report.Languages {
@@ -117,11 +126,19 @@ type jsonMetadata struct {
 	CalibrationFactor    float64                   `json:"calibration_factor"`
 	Estimated            bool                      `json:"estimated,omitempty"`
 	CalibrationOverrides []jsonCalibrationOverride `json:"calibration_overrides,omitempty"`
+	Complete             bool                      `json:"complete"`
+	Skipped              []jsonSkippedEntry        `json:"skipped"`
 }
 
 type jsonCalibrationOverride struct {
 	Language string  `json:"language"`
 	Factor   float64 `json:"factor"`
+}
+
+type jsonSkippedEntry struct {
+	Stage string `json:"stage"`
+	Path  string `json:"path"`
+	Error string `json:"error"`
 }
 
 func newJSONMetrics(metrics model.Metrics) jsonMetrics {

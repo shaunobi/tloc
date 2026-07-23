@@ -66,6 +66,7 @@ func (models *namedModelList) Set(value string) error {
 
 type configuration struct {
 	inputs          stringList
+	heldOutInputs   stringList
 	currentModel    string
 	legacyModel     string
 	spotModels      namedModelList
@@ -100,6 +101,19 @@ func run() error {
 	if len(samples) == 0 {
 		return fmt.Errorf("no supported, non-empty UTF-8 source files found")
 	}
+	var heldOutSamples []sourceSample
+	if len(config.heldOutInputs) > 0 {
+		heldOutSamples, err = collectSamples(config.heldOutInputs, config.maxBytes, config.maxPerLanguage, config.maxSamples)
+		if err != nil {
+			return fmt.Errorf("collect held-out samples: %w", err)
+		}
+		if len(heldOutSamples) == 0 {
+			return fmt.Errorf("no supported, non-empty UTF-8 held-out source files found")
+		}
+		if err := validateDisjointSamples(samples, heldOutSamples); err != nil {
+			return err
+		}
+	}
 
 	o200k, metadata, err := tokenizer.New(tokenizer.NameO200K)
 	if err != nil {
@@ -111,7 +125,16 @@ func run() error {
 			return fmt.Errorf("count o200k tokens in %q: %w", samples[index].Path, err)
 		}
 	}
-	printSamplePlan(samples, metadata)
+	for index := range heldOutSamples {
+		heldOutSamples[index].O200K, err = o200k.Count(heldOutSamples[index].Content)
+		if err != nil {
+			return fmt.Errorf("count o200k tokens in held-out sample %q: %w", heldOutSamples[index].Path, err)
+		}
+	}
+	printSamplePlan("Calibration", samples, metadata)
+	if len(heldOutSamples) > 0 {
+		printSamplePlan("Held out", heldOutSamples, metadata)
+	}
 	if config.dryRun {
 		fmt.Println("Dry run: no Anthropic API requests were made.")
 		return nil
@@ -161,16 +184,17 @@ func run() error {
 		GeneratedAt:      time.Now().UTC(),
 		Endpoint:         config.endpoint,
 		AnthropicVersion: config.apiVersion,
-		Method:           `Claude framing tokens = count_tokens("x") - 1 known probe token; Claude content tokens = count_tokens(message text) - framing tokens; factor = sum(Claude content tokens) / sum(o200k_base tokens)`,
+		Method:           `Claude framing tokens = count_tokens("x") - 1 known probe token; Claude content tokens = count_tokens(message text) - framing tokens; factor = sum(Claude content tokens) / sum(o200k_base tokens); held-out samples are excluded from fitting and evaluated only after factors are finalized`,
 		Sampling: samplingMetadata{
 			Inputs:              append([]string(nil), config.inputs...),
+			HeldOutInputs:       append([]string(nil), config.heldOutInputs...),
 			MaxBytesPerFile:     config.maxBytes,
 			MaxFilesPerLanguage: config.maxPerLanguage,
 			MaxSamples:          config.maxSamples,
 		},
 	}
 
-	totalRequests := len(models) * (len(samples) + 1)
+	totalRequests := len(models) * (len(samples) + len(heldOutSamples) + 1)
 	fmt.Printf("Calling count_tokens %d times across %d models...\n", totalRequests, len(models))
 	requestNumber := 0
 	for _, selectedModel := range models {
@@ -225,6 +249,42 @@ func run() error {
 				sample.O200K, contentCount, ratio)
 		}
 		finalizeModelReport(&modelResult)
+
+		heldOutMeasurements := make([]measurement, 0, len(heldOutSamples))
+		for index, sample := range heldOutSamples {
+			if err := delayRequest(ctx, &requestNumber, config.requestDelay); err != nil {
+				return err
+			}
+			rawCount, err := client.countTokens(ctx, selectedModel.model, string(sample.Content))
+			if err != nil {
+				return fmt.Errorf("measure %s held-out sample %q: %w", selectedModel.label, sample.Path, err)
+			}
+			if rawCount < baseline {
+				return fmt.Errorf("%s held-out sample %q raw count %d is below framing baseline %d", selectedModel.label, sample.Path, rawCount, baseline)
+			}
+			contentCount := rawCount - baseline
+			ratio := 0.0
+			if sample.O200K > 0 {
+				ratio = float64(contentCount) / float64(sample.O200K)
+			}
+			heldOutMeasurements = append(heldOutMeasurements, measurement{
+				Path:                 sample.Path,
+				Language:             sample.Language,
+				Bytes:                sample.Bytes,
+				Truncated:            sample.Truncated,
+				ContentSHA256:        sample.ContentSHA,
+				O200KTokens:          sample.O200K,
+				ClaudeRawInputTokens: rawCount,
+				ClaudeContentTokens:  contentCount,
+				ClaudePerO200KRatio:  ratio,
+			})
+			fmt.Printf("[held out %d/%d] %s %-14s %s: o200k=%d claude=%d ratio=%.4f\n",
+				index+1, len(heldOutSamples), selectedModel.label, sample.Language, sample.Path,
+				sample.O200K, contentCount, ratio)
+		}
+		if err := finalizeHeldOutEvaluation(&modelResult, heldOutMeasurements); err != nil {
+			return err
+		}
 		report.Models = append(report.Models, modelResult)
 	}
 
@@ -234,6 +294,10 @@ func run() error {
 	}
 	for _, model := range report.Models {
 		fmt.Printf("%s global factor %.6f; MAPE %.2f%%\n", model.Label, model.Global.Factor, model.Global.MeanAbsolutePercentError)
+		if model.HeldOut != nil {
+			fmt.Printf("%s held-out production-factor MAPE %.2f%% across %d samples\n",
+				model.Label, model.HeldOut.Summary.MeanAbsolutePercentError, model.HeldOut.Summary.Samples)
+		}
 	}
 	fmt.Printf("Wrote %s and %s\n", jsonPath, markdownPath)
 	return nil
@@ -249,6 +313,7 @@ func framingBaselineFromProbe(rawCount int64) (int64, error) {
 func parseFlags() configuration {
 	var config configuration
 	flag.Var(&config.inputs, "samples", "sample file or directory (repeatable; positional paths are also accepted)")
+	flag.Var(&config.heldOutInputs, "holdout", "held-out sample file or directory, excluded from factor fitting (repeatable)")
 	flag.StringVar(&config.currentModel, "current-model", "", "Anthropic model ID for the current tokenizer generation")
 	flag.StringVar(&config.legacyModel, "legacy-model", "", "Anthropic model ID for the legacy tokenizer generation")
 	flag.Var(&config.spotModels, "spot-model", "additional label=model-id to measure without assigning a compile-time factor (repeatable)")
@@ -281,7 +346,7 @@ func delayRequest(ctx context.Context, requestNumber *int, delay time.Duration) 
 	return nil
 }
 
-func printSamplePlan(samples []sourceSample, metadata tokenizer.Metadata) {
+func printSamplePlan(label string, samples []sourceSample, metadata tokenizer.Metadata) {
 	byLanguage := make(map[string]struct {
 		files  int
 		tokens int64
@@ -301,8 +366,8 @@ func printSamplePlan(samples []sourceSample, metadata tokenizer.Metadata) {
 		languages = append(languages, language)
 	}
 	sort.Strings(languages)
-	fmt.Printf("Selected %d files (%d bytes, %d %s tokens) across %d languages:\n",
-		len(samples), totalBytes, totalTokens, metadata.Encoding, len(languages))
+	fmt.Printf("%s: selected %d files (%d bytes, %d %s tokens) across %d languages:\n",
+		label, len(samples), totalBytes, totalTokens, metadata.Encoding, len(languages))
 	for _, language := range languages {
 		entry := byLanguage[language]
 		fmt.Printf("  %-14s %3d files %8d tokens\n", language, entry.files, entry.tokens)

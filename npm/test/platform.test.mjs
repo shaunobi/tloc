@@ -66,6 +66,9 @@ test("resolveBinary explains omitted optional dependencies", () => {
       assert.equal(error.code, "TLOC_PLATFORM_PACKAGE_MISSING");
       assert.match(error.message, /--omit=optional/);
       assert.match(error.message, /@shaunobi\/tloc-linux-x64/);
+      assert.match(error.message, /package-lock\.json/);
+      assert.match(error.message, /node_modules/);
+      assert.match(error.message, /Remove both/);
       return true;
     },
   );

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="60">
+  <title>System status</title>
+</head>
+<body>
+  <header><h1>System status</h1><p>All systems operational.</p></header>
+  <main>
+    <ol aria-label="Service status">
+      <li><span>API gateway</span> <strong>Operational</strong></li>
+      <li><span>Job workers</span> <strong>Operational</strong></li>
+      <li><span>Object storage</span> <strong>Operational</strong></li>
+      <li><span>Notification delivery</span> <strong>Operational</strong></li>
+    </ol>
+    <section>
+      <h2>Recent maintenance</h2>
+      <article>
+        <h3>Database index rebuild</h3>
+        <p>Completed without service interruption.</p>
+        <time datetime="2026-07-20T03:00:00Z">July 20, 2026</time>
+      </article>
+    </section>
+    <form action="/subscriptions" method="post">
+      <label>Status updates by email <input type="email" name="email" required></label>
+      <button>Subscribe</button>
+    </form>
+  </main>
+</body>
+</html>

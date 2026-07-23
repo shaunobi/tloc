@@ -88,6 +88,14 @@ type CalibrationOverride struct {
 	Factor   float64
 }
 
+// SkippedEntry describes one filesystem entry omitted after a recoverable
+// scan error. Reports containing skipped entries are incomplete.
+type SkippedEntry struct {
+	Stage string
+	Path  string
+	Error string
+}
+
 // Metadata describes the tool and tokenizer responsible for a report.
 type Metadata struct {
 	Version              string
@@ -95,6 +103,8 @@ type Metadata struct {
 	CalibrationFactor    float64
 	CalibrationOverrides []CalibrationOverride
 	Estimated            bool
+	Complete             bool
+	Skipped              []SkippedEntry
 }
 
 // View selects the primary records shown by a renderer.

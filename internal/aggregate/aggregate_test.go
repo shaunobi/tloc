@@ -100,6 +100,62 @@ func TestBuildFolderTreeCumulativeAndSorted(t *testing.T) {
 	assertFolder("other/root/(root files)", 1, true, model.Metrics{Files: 1, Lines: 2, Code: 2, Bytes: 20, Tokens: 4})
 }
 
+func TestBuildFolderViewRepresentsDirectFileInputOnce(t *testing.T) {
+	inputs := []model.InputRoot{{
+		ID:    7,
+		Given: "src/only.go",
+		Kind:  model.InputFile,
+	}}
+	files := []model.FileRecord{{
+		InputID:  7,
+		Path:     "src/only.go",
+		RelPath:  "only.go",
+		Language: "Go",
+		Metrics:  model.Metrics{Lines: 3, Code: 2, Tokens: 5},
+	}}
+
+	report, err := Build(inputs, files, model.ViewFolder, model.SortName, model.Metadata{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Folders) != 1 {
+		t.Fatalf("folder rows = %+v, want one synthetic bucket", report.Folders)
+	}
+	wantMetrics := model.Metrics{Files: 1, Lines: 3, Code: 2, Tokens: 5}
+	want := model.FolderRow{
+		InputID:   7,
+		Path:      "src/(root files)",
+		Name:      rootFilesName,
+		Depth:     0,
+		Synthetic: true,
+		Metrics:   wantMetrics,
+	}
+	if got := report.Folders[0]; got != want {
+		t.Fatalf("direct-file folder row = %+v, want %+v", got, want)
+	}
+	if report.Totals != wantMetrics {
+		t.Fatalf("totals = %+v, want %+v", report.Totals, wantMetrics)
+	}
+}
+
+func TestDirectFileBucketPathIsDeterministic(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"main.go", "(root files)"},
+		{"./src/main.go", "./src/(root files)"},
+		{"C:/repo/main.go", "C:/repo/(root files)"},
+		{"/main.go", "/(root files)"},
+		{"//server/share/main.go", "//server/share/(root files)"},
+	}
+	for _, test := range tests {
+		if got := directFileBucketPath(test.input); got != test.want {
+			t.Errorf("directFileBucketPath(%q) = %q, want %q", test.input, got, test.want)
+		}
+	}
+}
+
 func TestFolderNameSortPreservesHierarchy(t *testing.T) {
 	inputs, files := fixture()
 	report, err := Build(inputs, files, model.ViewFolder, model.SortName, model.Metadata{})

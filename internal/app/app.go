@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/shaunobi/tloc/internal/aggregate"
 	"github.com/shaunobi/tloc/internal/analyze"
@@ -17,6 +15,12 @@ import (
 
 // Main runs the CLI and returns a process exit code.
 func Main(args []string, stdout, stderr io.Writer) int {
+	return mainWithAnalyzer(args, stdout, stderr, analyze.Run)
+}
+
+type analyzerFunc func([]string, tokenizer.Counter, analyze.Options) ([]analyze.InputRoot, []analyze.FileRecord, []analyze.ScanWarning, error)
+
+func mainWithAnalyzer(args []string, stdout, stderr io.Writer, runAnalyzer analyzerFunc) int {
 	cfg, err := parseConfig(args, stdout)
 	if err != nil {
 		fmt.Fprintf(stderr, "tloc: %v\n", err)
@@ -30,21 +34,23 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
+	outputPlan, err := preflightOutput(cfg.output, cfg.force)
+	if err != nil {
+		fmt.Fprintf(stderr, "tloc: %v\n", err)
+		return 1
+	}
+	defer func() { _ = outputPlan.close() }()
+
 	counter, tokenizerMetadata, err := tokenizer.New(cfg.tokenizer)
 	if err != nil {
 		fmt.Fprintf(stderr, "tloc: %v\n", err)
 		return 1
 	}
 	var excludedFiles []string
-	if cfg.output != "" {
-		outputPath, pathErr := filepath.Abs(cfg.output)
-		if pathErr != nil {
-			fmt.Fprintf(stderr, "tloc: resolve output %q: %v\n", cfg.output, pathErr)
-			return 1
-		}
-		excludedFiles = []string{filepath.Clean(outputPath)}
+	if outputPlan.path != "" {
+		excludedFiles = []string{outputPlan.path}
 	}
-	inputs, files, err := analyze.Run(cfg.paths, counter, analyze.Options{
+	inputs, files, warnings, err := runAnalyzer(cfg.paths, counter, analyze.Options{
 		IncludeExt:   cfg.includeExt,
 		ExcludeExt:   cfg.excludeExt,
 		ExcludeDir:   cfg.excludeDir,
@@ -57,6 +63,9 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "tloc: %v\n", err)
 		return 1
 	}
+	for _, warning := range warnings {
+		fmt.Fprintf(stderr, "tloc: warning: incomplete scan: %v\n", warning)
+	}
 
 	view := model.ViewLanguage
 	if cfg.byFile {
@@ -66,6 +75,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	}
 	reportMetadata := toModelMetadata(tokenizerMetadata)
 	reportMetadata.Version = buildinfo.Version()
+	reportMetadata.Complete = len(warnings) == 0
+	reportMetadata.Skipped = toModelSkippedEntries(warnings)
 	report, err := aggregate.Build(toModelInputs(inputs), toModelFiles(files), view, model.SortKey(cfg.sort), reportMetadata)
 	if err != nil {
 		fmt.Fprintf(stderr, "tloc: build report: %v\n", err)
@@ -82,10 +93,16 @@ func Main(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "tloc: write stdout: %v\n", err)
 			return 1
 		}
+		if len(warnings) > 0 {
+			return 1
+		}
 		return 0
 	}
-	if err := os.WriteFile(cfg.output, rendered.Bytes(), 0o644); err != nil {
+	if err := writeOutput(&outputPlan, rendered.Bytes()); err != nil {
 		fmt.Fprintf(stderr, "tloc: write %q: %v\n", cfg.output, err)
+		return 1
+	}
+	if len(warnings) > 0 {
 		return 1
 	}
 	return 0
@@ -105,6 +122,18 @@ func toModelMetadata(metadata tokenizer.Metadata) model.Metadata {
 		CalibrationOverrides: overrides,
 		Estimated:            metadata.Estimated,
 	}
+}
+
+func toModelSkippedEntries(warnings []analyze.ScanWarning) []model.SkippedEntry {
+	result := make([]model.SkippedEntry, 0, len(warnings))
+	for _, warning := range warnings {
+		result = append(result, model.SkippedEntry{
+			Stage: warning.Stage,
+			Path:  warning.Path,
+			Error: warning.Message,
+		})
+	}
+	return result
 }
 
 func toModelInputs(inputs []analyze.InputRoot) []model.InputRoot {

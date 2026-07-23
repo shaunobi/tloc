@@ -1,4 +1,4 @@
-language,path,files,lines,code,comments,blanks,complexity,bytes,tokens
-Go,main.go,1,10,8,1,1,2,100,20
-Go,pkg/b.go,1,5,4,0,1,1,50,8
-Markdown,"README,notes.md",1,3,0,2,1,0,30,5
+language,path,files,lines,code,comments,blanks,complexity,bytes,tokens,record_type,complete,skipped_stage,skipped_path,skipped_error
+Go,main.go,1,10,8,1,1,2,100,20,data,true,,,
+Go,pkg/b.go,1,5,4,0,1,1,50,8,data,true,,,
+Markdown,"README,notes.md",1,3,0,2,1,0,30,5,data,true,,,

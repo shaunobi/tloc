@@ -212,6 +212,19 @@ func collectSamples(inputs []string, maxBytes, maxPerLanguage, maxSamples int) (
 	return selected, nil
 }
 
+func validateDisjointSamples(calibration, heldOut []sourceSample) error {
+	calibrationHashes := make(map[string]string, len(calibration))
+	for _, sample := range calibration {
+		calibrationHashes[sample.ContentSHA] = sample.Path
+	}
+	for _, sample := range heldOut {
+		if calibrationPath, duplicate := calibrationHashes[sample.ContentSHA]; duplicate {
+			return fmt.Errorf("held-out sample %q duplicates calibration content from %q", sample.Path, calibrationPath)
+		}
+	}
+	return nil
+}
+
 func loadSample(path, displayPath string, maxBytes int) (sourceSample, bool, error) {
 	language, ok := detectSampleLanguage(path)
 	if !ok {

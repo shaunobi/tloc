@@ -82,6 +82,16 @@ func TestLoadSampleTruncatesOnUTF8Boundary(t *testing.T) {
 	}
 }
 
+func TestValidateDisjointSamples(t *testing.T) {
+	calibration := []sourceSample{{Path: "fit.go", ContentSHA: "aaa"}}
+	if err := validateDisjointSamples(calibration, []sourceSample{{Path: "holdout.go", ContentSHA: "bbb"}}); err != nil {
+		t.Fatalf("distinct samples failed validation: %v", err)
+	}
+	if err := validateDisjointSamples(calibration, []sourceSample{{Path: "copy.go", ContentSHA: "aaa"}}); err == nil {
+		t.Fatal("duplicate held-out content passed validation")
+	}
+}
+
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

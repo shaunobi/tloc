@@ -74,6 +74,8 @@
   "metadata": {
     "version": "test-version",
     "tokenizer": "o200k",
-    "calibration_factor": 1
+    "calibration_factor": 1,
+    "complete": true,
+    "skipped": []
   }
 }

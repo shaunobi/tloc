@@ -21,6 +21,7 @@ type config struct {
 	byFolder     bool
 	format       string
 	output       string
+	force        bool
 	sort         string
 	includeExt   []string
 	excludeExt   []string
@@ -43,6 +44,7 @@ func parseConfig(args []string, helpWriter io.Writer) (config, error) {
 	flags.BoolVar(&cfg.byFolder, "by-folder", false, "report a cumulative folder tree")
 	flags.StringVarP(&cfg.format, "format", "f", "tabular", "output format: tabular, json, or csv")
 	flags.StringVarP(&cfg.output, "output", "o", "", "write output to file instead of stdout")
+	flags.BoolVar(&cfg.force, "force", false, "overwrite an existing output file")
 	flags.StringVar(&cfg.sort, "sort", "tokens", "sort by: tokens, code, lines, files, or name")
 	flags.StringSliceVar(&cfg.includeExt, "include-ext", nil, "only include extensions (comma-separated)")
 	flags.StringSliceVar(&cfg.excludeExt, "exclude-ext", nil, "exclude extensions (comma-separated; takes precedence)")
@@ -78,6 +80,9 @@ func parseConfig(args []string, helpWriter io.Writer) (config, error) {
 	}
 	if cfg.byFile && cfg.byFolder {
 		return config{}, errors.New("--by-file and --by-folder are mutually exclusive")
+	}
+	if cfg.force && cfg.output == "" {
+		return config{}, errors.New("--force requires --output")
 	}
 	if !slices.Contains([]string{"o200k", "codex", "claude", "claude-legacy"}, cfg.tokenizer) {
 		return config{}, fmt.Errorf("invalid --tokenizer %q (want claude, claude-legacy, o200k, or codex)", cfg.tokenizer)
@@ -128,8 +133,10 @@ func writeUsage(w io.Writer, flags *pflag.FlagSet) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Tokenizer accuracy:")
 	fmt.Fprintln(w, "  o200k and codex count the o200k encoding exactly.")
-	fmt.Fprintln(w, "  claude and claude-legacy are estimates and may differ from Anthropic's")
-	fmt.Fprintln(w, "  count_tokens API.")
+	fmt.Fprintln(w, "  claude and claude-legacy are calibrated estimates targeting roughly")
+	fmt.Fprintln(w, "  10% error on represented languages; individual results may differ from")
+	fmt.Fprintln(w, "  Anthropic's count_tokens API.")
+	fmt.Fprintln(w, "  Unrepresented languages use a global factor without direct validation.")
 	pending := make([]string, 0, 2)
 	if !tokenizer.ClaudeCurrentCalibrationReady {
 		pending = append(pending, tokenizer.NameClaude)
