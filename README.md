@@ -14,7 +14,7 @@ brew install shaunobi/tap/tloc
 
 ### Go
 
-Go 1.25 or newer is required:
+Go 1.25.2 or newer is required:
 
 ```sh
 go install github.com/shaunobi/tloc@latest

@@ -1,12 +1,4 @@
 # TODO — tloc v1
 
-Only unfinished work remains here. Completed items and implementation notes are
-in `DONE.md`.
-
-## Release (remote access and account setup required)
-
-- [ ] Tag `v1.0.0`, run the draft → npm → finalized GitHub release workflow end to end, and verify `go install`, a downloaded release binary, global npm installation, and `npx @shaunobi/tloc`.
-
-## Post-v1 follow-ups (not release blockers)
-
-- [ ] File npm support dispute for the abandoned unscoped `tloc` name; if granted, move the package to unscoped.
+No unfinished work remains. Completed items, verification evidence, and deliberate
+scope decisions are recorded in `DONE.md`.
