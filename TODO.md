@@ -9,5 +9,4 @@ in `DONE.md`.
 
 ## Post-v1 follow-ups (not release blockers)
 
-- [ ] Homebrew tap (after first tagged release).
 - [ ] File npm support dispute for the abandoned unscoped `tloc` name; if granted, move the package to unscoped.

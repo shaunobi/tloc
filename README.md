@@ -6,6 +6,12 @@ project contains and how much model context it consumes.
 
 ## Install
 
+### Homebrew
+
+```sh
+brew install shaunobi/tap/tloc
+```
+
 ### Go
 
 Go 1.25 or newer is required:
