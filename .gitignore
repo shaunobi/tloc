@@ -4,4 +4,5 @@
 /coverage.out
 /node_modules/
 /.cache/
+/.claude/
 *.tmp
